@@ -6,7 +6,10 @@ import { createChatPreviews } from "../src/chat_previews.ts";
 
 type Json = Record<string, unknown>;
 
-function commandFixture(source: "通信" | "メモリ" | "ディスク") {
+function commandFixture(
+  source: "通信" | "メモリ" | "ディスク",
+  chatCachePath = "",
+) {
   const message = { id: "2", createdTime: 20, text: "読み込んだ最新の本文" };
   const chat = {
     mid: "u-fixture",
@@ -17,20 +20,33 @@ function commandFixture(source: "通信" | "メモリ" | "ディスク") {
     unread: 0,
     preview: "",
   };
-  const chatCache = { at: Date.now(), chats: [chat] };
+  let chatCache: ReturnType<CommandRuntime["getChatCache"]> = {
+    at: Date.now(),
+    chats: [chat],
+  };
   const events: Json[] = [];
   const okResults: unknown[] = [];
   const previews = createChatPreviews({
-    getChats: () => chatCache.chats,
+    getChats: () => chatCache?.chats ?? [],
     previewLine: (message) => `相手: ${message.text}`,
     fallback: () => "タップして開く",
     emit: (payload) => events.push({ event: "chat_preview", ...payload }),
     save: () => Promise.resolve(),
   });
   let networkCalls = 0;
+  let hydrated = 0;
+  let activity = 20;
   const client = {
     base: {
       talk: {
+        getMessageBoxes: () =>
+          Promise.resolve({
+            messageBoxes: [{
+              id: chat.mid,
+              lastDeliveredMessageId: { messageId: 2, deliveredTime: activity },
+            }],
+          }),
+        getAllChatMids: () => Promise.resolve({ memberChatMids: [] }),
         getPreviousMessagesV2WithRequest: () => {
           networkCalls++;
           return Promise.resolve([message]);
@@ -45,7 +61,9 @@ function commandFixture(source: "通信" | "メモリ" | "ディスク") {
     isListening: () => false,
     setAuthDead: () => {},
     getChatCache: () => chatCache,
-    setChatCache: () => {},
+    setChatCache: (next) => {
+      chatCache = next;
+    },
     msgCache: new Map(
       source === "メモリ"
         ? [[chat.mid, { at: Date.now(), messages: [message] }]]
@@ -54,7 +72,7 @@ function commandFixture(source: "通信" | "メモリ" | "ディスク") {
     contactIndex: new Map(),
     boxCursor: new Map([[chat.mid, { messageId: 2, deliveredTime: 20 }]]),
     avatarDir: "",
-    chatCachePath: "",
+    chatCachePath,
     storagePath: "",
     lineDevice: "DESKTOPWIN",
     lineVersion: "",
@@ -67,7 +85,10 @@ function commandFixture(source: "通信" | "メモリ" | "ディスク") {
     saveDiskContacts: noOp,
     refreshContactIndex: noOp,
     hydrateAvatars: noOp,
-    hydratePreviews: noOp,
+    hydratePreviews: () => {
+      hydrated++;
+      return Promise.resolve();
+    },
     updateChatPreview: previews.updateFromMessages,
     bumpMediaEpoch: () => 0,
     loadDiskMessages: () =>
@@ -98,6 +119,11 @@ function commandFixture(source: "通信" | "メモリ" | "ディスク") {
     events,
     okResults,
     networkCalls: () => networkCalls,
+    hydrated: () => hydrated,
+    setActivity: (next: number) => {
+      activity = next;
+    },
+    runtime,
   };
 }
 
@@ -119,3 +145,47 @@ for (const source of ["通信", "メモリ", "ディスク"] as const) {
     assertEquals(fixture.networkCalls(), source === "メモリ" ? 0 : 1);
   });
 }
+
+Deno.test("一覧がメモリキャッシュでも未取得のプレビューを補完する", async () => {
+  const fixture = commandFixture("メモリ");
+  await fixture.commands.listChats(1);
+  assertEquals(fixture.hydrated(), 1);
+  assertEquals(fixture.runtime.getChatCache()?.chats[0].preview, "");
+});
+
+Deno.test("再起動後の一覧更新で保存済みのプレビューを失わない", async () => {
+  const directory = await Deno.makeTempDir();
+  const fixture = commandFixture("通信", `${directory}/chats.json`);
+  try {
+    await Deno.writeTextFile(
+      fixture.runtime.chatCachePath,
+      JSON.stringify({
+        at: Date.now(),
+        chats: [{ ...fixture.chat, preview: "相手: 保存済みの本文" }],
+      }),
+    );
+    fixture.runtime.setChatCache(null);
+    await fixture.commands.listChats(1);
+    assertEquals(
+      fixture.runtime.getChatCache()?.chats[0].preview,
+      "相手: 保存済みの本文",
+    );
+  } finally {
+    await Deno.remove(directory, { recursive: true });
+  }
+});
+
+Deno.test("新着のある一覧では古いプレビューを再取得の対象に戻す", async () => {
+  const directory = await Deno.makeTempDir();
+  const fixture = commandFixture("通信", `${directory}/chats.json`);
+  fixture.chat.preview = "相手: 古い本文";
+  fixture.setActivity(30);
+  try {
+    await fixture.commands.listChats(1, true);
+    assertEquals(fixture.runtime.getChatCache()?.chats[0].preview, "");
+    assertEquals(fixture.runtime.getChatCache()?.chats[0].lastActivity, 30);
+    assertEquals(fixture.hydrated(), 1);
+  } finally {
+    await Deno.remove(directory, { recursive: true });
+  }
+});

@@ -283,6 +283,7 @@ export function createCommandService(runtime: CommandRuntime) {
           count: chatCache.chats.length,
           cached: true,
         });
+        void hydratePreviews(chatCache.chats);
         return;
       }
 
@@ -290,6 +291,8 @@ export function createCommandService(runtime: CommandRuntime) {
       if (!force) {
         const disk = await loadDiskChatCache();
         if (disk?.length) {
+          chatCache = { at: 0, chats: disk };
+          runtime.setChatCache(chatCache);
           emitEvent("chats", { chats: disk, count: disk.length, cached: true });
           emitEvent("progress", { scope: "chats", state: "ready" });
         }
@@ -308,9 +311,14 @@ export function createCommandService(runtime: CommandRuntime) {
           const mid = String(box.id ?? "");
           if (!mid) continue;
           storeBoxCursor(mid, box.lastDeliveredMessageId);
-          const prevPreview = chatCache?.chats.find((x) =>
-            x.mid === mid
-          )?.preview ?? "";
+          const previous = chatCache?.chats.find((row) => row.mid === mid);
+          const activity = Number(
+            box.lastDeliveredMessageId?.deliveredTime ?? 0,
+          );
+          // 新着がある場合、前回の本文を最新プレビューとして使い回さない。
+          const prevPreview = previous && previous.lastActivity >= activity
+            ? previous.preview
+            : "";
           byMid.set(mid, {
             mid,
             name: contactIndex.get(mid)?.name || mid,

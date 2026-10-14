@@ -86,8 +86,6 @@ function cachePolicy(): CachePolicy {
 }
 const AVATAR_CONCURRENCY = 3;
 const MEDIA_CONCURRENCY = 1;
-const PREVIEW_CONCURRENCY = 2;
-const PREVIEW_TOP = 28;
 const MEDIA_FIRST_BATCH = 5;
 const THUMB_MAX = 440;
 const THUMB_BYTES = 220_000;
@@ -1219,79 +1217,44 @@ async function hydrateMedia(
 async function hydratePreviews(chats: ChatRow[]) {
   if (!client || !stdoutAlive) return;
   const gen = workGen;
-  const need = chats
-    .filter((c) => {
-      const L = previewLang();
-      return c.lastActivity > 0 &&
-        (!c.preview || c.preview === "Tap to open" || c.preview === L.tap);
-    })
-    .slice(0, PREVIEW_TOP);
-  if (!need.length) return;
+  const currentClient = client;
+  const active = () =>
+    client === currentClient && stdoutAlive && workGen === gen;
+  await chatPreviews.hydrate(chats, async (chat) => {
+    const cached = msgCache.get(chat.mid)?.messages ??
+      await loadDiskMessages(chat.mid);
+    if (!active()) return [];
+    if (
+      cached?.some((message) =>
+        Number(message.createdTime ?? 0) >= chat.lastActivity
+      )
+    ) return cached;
 
-  await mapPool(need, PREVIEW_CONCURRENCY, async (c) => {
-    if (!client || !stdoutAlive || workGen !== gen) return;
-    try {
-      let cursor = boxCursor.get(c.mid);
-      if (!cursor) {
-        // refresh cursors cheaply only when missing
-        const boxes = await client.base.talk.getMessageBoxes({
-          messageBoxListRequest: {},
-        });
-        if (!client || workGen !== gen) return;
-        for (const box of boxes.messageBoxes ?? []) {
-          const mid = String(box.id ?? "");
-          storeBoxCursor(mid, box.lastDeliveredMessageId);
-        }
-        cursor = boxCursor.get(c.mid);
+    let cursor = boxCursor.get(chat.mid);
+    if (!cursor) {
+      const boxes = await currentClient.base.talk.getMessageBoxes({
+        messageBoxListRequest: {},
+      });
+      if (!active()) return [];
+      for (const box of boxes.messageBoxes ?? []) {
+        storeBoxCursor(String(box.id ?? ""), box.lastDeliveredMessageId);
       }
-      if (!cursor) return;
-
-      const messages = await client.base.talk.getPreviousMessagesV2WithRequest({
+      cursor = boxCursor.get(chat.mid);
+    }
+    if (!cursor) return [];
+    const messages = await currentClient.base.talk
+      .getPreviousMessagesV2WithRequest({
         request: {
-          messageBoxId: c.mid,
-          endMessageId: {
-            messageId: cursor.messageId,
-            deliveredTime: cursor.deliveredTime,
-          },
+          messageBoxId: chat.mid,
+          endMessageId: cursor,
           messagesCount: 1,
         },
       });
-      if (!client || workGen !== gen || !stdoutAlive) return;
-      const raw = messages?.[messages.length - 1] ?? messages?.[0];
-      if (!raw) return;
-      const summary = await summarizeRawMessage(raw, { withMedia: false });
-      if (workGen !== gen || !stdoutAlive) return;
-      const preview = previewLine(summary);
-      c.preview = preview;
-      if (chatCache) {
-        const row = chatCache.chats.find((x) => x.mid === c.mid);
-        if (row) row.preview = preview;
-      }
-      emitEvent("chat_preview", {
-        mid: c.mid,
-        preview,
-        lastActivity: c.lastActivity,
-      });
-    } catch (e) {
-      console.error("[hydratePreviews]", c.mid, e);
-      if (!c.preview) {
-        c.preview = previewLang().tap;
-        emitEvent("chat_preview", {
-          mid: c.mid,
-          preview: c.preview,
-          lastActivity: c.lastActivity,
-        });
-      }
-    }
-  });
-
-  if (chatCache) {
-    try {
-      await atomicWriteJson(chatCachePath, chatCache);
-    } catch (error) {
-      console.error("[chat-preview-cache]", error);
-    }
-  }
+    if (!active()) return [];
+    return await Promise.all(
+      messages.map((raw) => summarizeRawMessage(raw, { withMedia: false })),
+    );
+  }, active);
 }
 
 async function buildFriendsList(): Promise<ChatRow[]> {
