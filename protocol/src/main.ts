@@ -18,6 +18,7 @@ import { createStickerService } from "./stickers.ts";
 import { createCommandService } from "./commands.ts";
 import { createListener } from "./listener.ts";
 import { createMessageView } from "./message_view.ts";
+import { createChatPreviews } from "./chat_previews.ts";
 
 type Json = Record<string, unknown>;
 
@@ -273,6 +274,24 @@ type BoxCursor = {
 };
 const boxCursor = new Map<string, BoxCursor>();
 
+const chatPreviews = createChatPreviews({
+  getChats: () => chatCache?.chats ?? [],
+  previewLine,
+  fallback: () => previewLang().tap,
+  emit: (chat) => emitEvent("chat_preview", chat),
+  save: async () => {
+    if (chatCache) {
+      try {
+        await atomicWriteJson(chatCachePath, chatCache);
+      } catch {
+        console.error(
+          "[chat-preview-cache] プレビューを保存できませんでした。",
+        );
+      }
+    }
+  },
+});
+
 const listener = createListener({
   getClient: () => client,
   isListening: () => listening,
@@ -318,6 +337,7 @@ const commands = createCommandService({
   refreshContactIndex,
   hydrateAvatars,
   hydratePreviews,
+  updateChatPreview: chatPreviews.updateFromMessages,
   bumpMediaEpoch,
   loadDiskMessages,
   saveDiskMessages,
