@@ -25,7 +25,6 @@ function commandFixture(
   };
   const events: Json[] = [];
   const okResults: unknown[] = [];
-  let reads = 0;
   let networkCalls = 0;
   let hydrated = 0;
   let activity = 20;
@@ -115,7 +114,6 @@ function commandFixture(
       activity = next;
     },
     runtime,
-    reads: () => reads,
   };
 }
 
