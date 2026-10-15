@@ -45,6 +45,14 @@ export function createMessageView(runtime: MessageViewRuntime) {
     if (code === "ja" || code === "ja-jp" || code === "ja_jp") {
       return {
         you: "自分",
+        callIncoming: "着信がありました",
+        callOutgoing: "発信しました",
+        callMissed: "不在着信",
+        callUnanswered: "応答なし",
+        videoIncoming: "ビデオ通話の着信",
+        videoOutgoing: "ビデオ通話の発信",
+        videoMissed: "ビデオ通話の不在着信",
+        videoUnanswered: "ビデオ通話の応答なし",
         they: "相手",
         photo: "写真",
         video: "動画",
