@@ -921,12 +921,11 @@ mod read_receipt_tests {
     fn read_events_preserve_reader_and_range_bounds() {
         let (tx, rx) = async_channel::unbounded();
         let pending = Arc::new(Mutex::new(HashSet::new()));
-        let generation = AtomicU64::new(1);
         let events = concat!(
             "{\"event\":\"read_receipt\",\"chatMid\":\"c-group\",\"userMid\":\"u-one\",\"messageId\":\"9007199254740993\"}\n",
             "{\"event\":\"read_ranges\",\"chatMid\":\"c-group\",\"readers\":[{\"userMid\":\"u-two\",\"ranges\":[{\"startMessageId\":\"9007199254740992\",\"endMessageId\":\"9007199254740993\"}]}]}\n"
         );
-        read_loop(events.as_bytes(), tx, pending, &generation, 1);
+        read_loop(events.as_bytes(), tx, pending);
         assert!(
             matches!(rx.try_recv().unwrap(), ProtocolEvent::ReadReceipt { user_mid, message_id, .. } if user_mid == "u-one" && message_id == "9007199254740993")
         );
