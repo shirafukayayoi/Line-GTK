@@ -4,7 +4,7 @@ import { join } from "@std/path";
 import { restoreSession } from "./auth.ts";
 import { authenticateEmail } from "./email_login.ts";
 import type { CachePolicy } from "./cache_policy.ts";
-import { friendName, picturePathOf } from "./contacts.ts";
+import { contactKind, friendName, picturePathOf } from "./contacts.ts";
 import type { LineDevice } from "./auth.ts";
 import { needsDecryptionRefresh } from "./e2ee_guard.ts";
 import { fetchGroupProfiles } from "./groups.ts";
@@ -400,16 +400,21 @@ export function createCommandService(runtime: CommandRuntime) {
             const picturePath = picturePathOf(
               user as unknown as Record<string, unknown>,
             );
+            const kind = contactKind(
+              (user.raw as { contact?: unknown })?.contact,
+              contactIndex.get(user.mid)?.kind,
+            );
             contactIndex.set(user.mid, {
               name,
               picturePath,
-              kind: "dm",
+              kind,
               muted: false,
             });
             const prev = byMid.get(user.mid);
             if (prev) {
               prev.name = name;
               prev.picturePath = picturePath;
+              prev.kind = kind;
             }
           }
         } catch (e2) {
@@ -601,6 +606,7 @@ export function createCommandService(runtime: CommandRuntime) {
               },
             });
           out = [];
+          let officialChanged = false;
           for (const raw of messages) {
             try {
               const meta = (raw as { contentMetadata?: Record<string, string> })
@@ -608,6 +614,7 @@ export function createCommandService(runtime: CommandRuntime) {
               if (meta?.BOT_CHECK || meta?.BOT_ORIGIN) {
                 const from = String((raw as { from?: string }).from ?? chatMid);
                 const cur = contactIndex.get(from);
+                if (cur?.kind !== "bot") officialChanged = true;
                 if (cur) cur.kind = "bot";
                 else {
                   contactIndex.set(from, {
@@ -617,10 +624,29 @@ export function createCommandService(runtime: CommandRuntime) {
                     muted: false,
                   });
                 }
+                const row = runtime.getChatCache()?.chats.find((chat) =>
+                  chat.mid === from
+                );
+                if (row && row.kind !== "group" && row.kind !== "bot") {
+                  row.kind = "bot";
+                  emitEvent("chat_upsert", { chat: { ...row } });
+                  officialChanged = true;
+                }
               }
               out.push(await summarizeRawMessage(raw, { withMedia: false }));
             } catch (e) {
               console.error("[fetch msg skip]", e);
+            }
+          }
+          if (officialChanged) {
+            try {
+              await runtime.saveDiskContacts();
+              await runtime.saveChatCache();
+            } catch (error) {
+              console.error(
+                "[chat-category] 公式アカウントの分類を保存できませんでした。",
+                error,
+              );
             }
           }
         }

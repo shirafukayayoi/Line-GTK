@@ -198,3 +198,41 @@ Deno.test("新着のある一覧では古いプレビューを再取得の対象
     await Deno.remove(directory, { recursive: true });
   }
 });
+
+for (const saveFails of [false, true]) {
+  Deno.test(`本文で分かった公式分類を即時反映し、保存失敗=${saveFails}でも本文を表示する`, async () => {
+    const fixture = commandFixture("通信");
+    const client = fixture.runtime.getClient()!;
+    client.base.talk.getPreviousMessagesV2WithRequest = () =>
+      Promise.resolve([
+        {
+          id: "2",
+          from: fixture.chat.mid,
+          contentMetadata: { BOT_CHECK: "1" },
+        },
+      ] as never);
+    let saves = 0;
+    fixture.runtime.saveDiskContacts = () => {
+      saves++;
+      return saveFails
+        ? Promise.reject(new Error("模擬保存失敗"))
+        : Promise.resolve();
+    };
+    fixture.runtime.saveChatCache = () => Promise.resolve();
+    await fixture.commands.fetchMessages(1, fixture.chat.mid);
+    assertEquals(fixture.chat.kind, "bot");
+    assertEquals(
+      fixture.runtime.contactIndex.get(fixture.chat.mid)?.kind,
+      "bot",
+    );
+    assertEquals(saves, 1);
+    assertEquals(
+      fixture.events.filter((event) => event.event === "chat_upsert").length,
+      1,
+    );
+    assertEquals(
+      (fixture.okResults[0] as { messages: Json[] }).messages.length,
+      1,
+    );
+  });
+}
