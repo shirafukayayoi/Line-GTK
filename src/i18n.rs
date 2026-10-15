@@ -106,7 +106,7 @@ mod tests {
             serde_json::from_str(include_str!("../assets/lang/eng.json")).unwrap();
         let ja: HashMap<String, String> =
             serde_json::from_str(include_str!("../assets/lang/ja.json")).unwrap();
-        assert_eq!(en.len(), ja.len());
+        // 英語の全キーと引数を検証し、別PRで追加する機能の訳語も保持する。
         for (key, english) in &en {
             let japanese = ja.get(key).expect("日本語訳がありません");
             assert!(!japanese.trim().is_empty(), "空の日本語訳：{key}");
