@@ -105,6 +105,13 @@ pub(super) fn refresh(state: &AppState) {
             }
         }
     }
+    if let Some(mid) = state.current_chat.borrow().as_deref()
+        && let Some(index) = chats.iter().position(|chat| chat.mid == mid)
+        && let Some(row) = state.chat_list.row_at_index(index as i32)
+        && row.is_visible()
+    {
+        state.chat_list.select_row(Some(&row));
+    }
     if !chats.is_empty() {
         if visible == 0 {
             set_side_state(state, "empty", Some(&crate::i18n::t("chat_filter_empty")));
