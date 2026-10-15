@@ -81,7 +81,10 @@ function commandFixture(
       hydrated++;
       return Promise.resolve();
     },
-    refreshReadReceipts: () => { reads++; return Promise.resolve(); },
+    refreshReadReceipts: () => {
+      reads++;
+      return Promise.resolve();
+    },
     bumpMediaEpoch: () => 0,
     loadDiskMessages: () =>
       Promise.resolve(source === "ディスク" ? [message] : null),
