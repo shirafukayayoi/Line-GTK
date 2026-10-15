@@ -12,6 +12,7 @@ Unofficial native LINE client for Linux. GTK4 / Libadwaita UI with a Deno protoc
 - [x] QR login (additional device)
 - [x] メールアドレス・パスワードでログイン（スマホでの認証番号入力に対応）
 - [x] Chats, messages, stickers, friends
+- [x] トークを「全部・友だち・グループ・公式アカウント」で絞り込み、カテゴリ内を検索
 - [x] Photos, video, voice messages, files
 - [x] Paste and drag-and-drop attachments
 - [x] In-app viewers (image, video, PDF, text)

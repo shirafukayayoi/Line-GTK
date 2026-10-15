@@ -323,6 +323,7 @@ pub(super) fn handle_event(state: &AppState, ev: ProtocolEvent) {
                     chat.last_activity = last_activity;
                 }
             }
+            chat_filter::refresh(state);
         }
         ProtocolEvent::ChatMute { mid, muted } => {
             if let Some(chat) = state.chats.borrow_mut().iter_mut().find(|c| c.mid == mid) {

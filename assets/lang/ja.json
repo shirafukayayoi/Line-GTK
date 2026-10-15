@@ -1,4 +1,10 @@
 {
+  "chat_filter_all": "全部",
+  "chat_filter_friends": "友だち",
+  "chat_filter_groups": "グループ",
+  "chat_filter_official": "公式アカウント",
+  "chat_filter_current": "トークの分類: {category}",
+  "chat_filter_empty": "条件に一致するトークはありません",
   "app_title": "LINE GTK",
   "app_name": "LINE GTK",
   "chats": "トーク",
