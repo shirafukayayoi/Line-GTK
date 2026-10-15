@@ -125,6 +125,7 @@ pub(super) fn append_message(state: &AppState, msg: &MessageInfo, live: bool) {
         if need_sep {
             *state.last_msg_day.borrow_mut() = Some(day);
             let sep_row = gtk::Box::builder()
+                .orientation(gtk::Orientation::Vertical)
                 .css_classes(["line-message-row", "line-day-sep-row"])
                 .build();
             let sep = gtk::Label::builder()
@@ -1513,6 +1514,7 @@ pub(super) fn ensure_new_message_separator(state: &AppState) {
         return;
     }
     let sep_row = gtk::Box::builder()
+        .orientation(gtk::Orientation::Vertical)
         .css_classes(["line-message-row", "line-new-sep-row"])
         .build();
     let row_box = gtk::Box::builder()
