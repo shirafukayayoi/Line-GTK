@@ -124,22 +124,23 @@ pub(super) fn append_message(state: &AppState, msg: &MessageInfo, live: bool) {
         let need_sep = state.last_msg_day.borrow().as_deref() != Some(day.as_str());
         if need_sep {
             *state.last_msg_day.borrow_mut() = Some(day);
-            let sep_row = gtk::ListBoxRow::builder()
-                .selectable(false)
-                .activatable(false)
-                .css_classes(["line-day-sep-row"])
+            let sep_row = gtk::Box::builder()
+                .css_classes(["line-message-row", "line-day-sep-row"])
                 .build();
             let sep = gtk::Label::builder()
                 .label(format_day_separator(msg.created_time))
                 .halign(gtk::Align::Center)
                 .css_classes(["line-day-sep"])
                 .build();
-            sep_row.set_child(Some(&sep));
+            sep_row.append(&sep);
             list.append(&sep_row);
         }
     }
 
-    let row = gtk::ListBoxRow::new();
+    // ListViewが行のフォーカスを管理するため、ListBox専用の行を入れ子にしない。
+    let row = gtk::Box::builder()
+        .css_classes(["line-message-row"])
+        .build();
     let outer = gtk::Box::builder()
         .orientation(gtk::Orientation::Horizontal)
         .spacing(8)
@@ -382,7 +383,7 @@ pub(super) fn append_message(state: &AppState, msg: &MessageInfo, live: bool) {
         outer.append(&gtk::Box::builder().hexpand(true).build());
     }
 
-    row.set_child(Some(&outer));
+    row.append(&outer);
     if is_pending {
         row.add_css_class("line-msg-pending-row");
         state
@@ -1511,10 +1512,8 @@ pub(super) fn ensure_new_message_separator(state: &AppState) {
     if state.new_sep_row.borrow().is_some() {
         return;
     }
-    let sep_row = gtk::ListBoxRow::builder()
-        .selectable(false)
-        .activatable(false)
-        .css_classes(["line-new-sep-row"])
+    let sep_row = gtk::Box::builder()
+        .css_classes(["line-message-row", "line-new-sep-row"])
         .build();
     let row_box = gtk::Box::builder()
         .orientation(gtk::Orientation::Horizontal)
@@ -1536,7 +1535,7 @@ pub(super) fn ensure_new_message_separator(state: &AppState) {
         .build();
     row_box.append(&line);
     row_box.append(&badge);
-    sep_row.set_child(Some(&row_box));
+    sep_row.append(&row_box);
     state.message_list.append(&sep_row);
     *state.new_sep_row.borrow_mut() = Some(sep_row);
 }

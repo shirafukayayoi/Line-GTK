@@ -1021,7 +1021,7 @@ pub fn load_css() {
             background: transparent;
         }
         .line-msg-list { background: transparent; }
-        .line-msg-list row {
+        .line-msg-list row, .line-message-row {
             background: transparent;
             margin: 2px 4px;
             padding: 0;
