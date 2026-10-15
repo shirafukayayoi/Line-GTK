@@ -75,7 +75,7 @@ pub struct FlexInfo {
     pub actions: Vec<FlexAction>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, PartialEq)]
 pub struct ReplyInfo {
     #[serde(rename = "messageId")]
     pub message_id: String,

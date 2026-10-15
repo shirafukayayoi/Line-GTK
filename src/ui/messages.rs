@@ -1,20 +1,13 @@
 use super::*;
 
-pub(super) fn message_list_fingerprint(messages: &[MessageInfo]) -> (usize, String, String) {
-    let first = messages.first().map(|m| m.id.clone()).unwrap_or_default();
-    let last = messages.last().map(|m| m.id.clone()).unwrap_or_default();
-    (messages.len(), first, last)
-}
-
 pub(super) fn same_message_list(
     state: &AppState,
     chat_mid: &str,
     messages: &[MessageInfo],
 ) -> bool {
-    let (len, first, last) = message_list_fingerprint(messages);
     matches!(
         state.msg_list_fp.borrow().as_ref(),
-        Some((mid, l, f, la)) if mid == chat_mid && *l == len && f == &first && la == &last
+        Some((mid, previous)) if mid == chat_mid && previous == messages
     )
 }
 
@@ -28,8 +21,8 @@ pub(super) fn apply_messages(state: &AppState, mut messages: Vec<MessageInfo>) {
     *state.stick_bottom.borrow_mut() = true;
     messages.sort_by_key(|m| m.created_time);
     if let Some(mid) = state.current_chat.borrow().clone() {
-        let (len, first, last) = message_list_fingerprint(&messages);
-        *state.msg_list_fp.borrow_mut() = Some((mid, len, first, last));
+        // 引用元の本文が補完された場合も、同じIDの行を更新する。
+        *state.msg_list_fp.borrow_mut() = Some((mid, messages.clone()));
     } else {
         *state.msg_list_fp.borrow_mut() = None;
     }
