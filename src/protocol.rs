@@ -140,7 +140,7 @@ pub enum ProtocolEvent {
         pin: String,
     },
     Listening,
-    Message(MessageInfo),
+    Message(Box<MessageInfo>),
     Chats {
         chats: Vec<ChatInfo>,
         cached: bool,
