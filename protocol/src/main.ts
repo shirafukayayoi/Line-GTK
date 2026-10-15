@@ -259,6 +259,16 @@ const outgoingMedia = createOutgoingMedia({
 });
 
 let chatCache: { at: number; chats: ChatRow[] } | null = null;
+let chatCacheWrite = Promise.resolve();
+function saveChatCache(): Promise<void> {
+  const write = chatCacheWrite.then(async () => {
+    if (chatCache) await atomicWriteJson(chatCachePath, chatCache);
+  });
+  // 1回の保存失敗で、後続の更新まで停止しないようにする。
+  chatCacheWrite = write.catch(() => {});
+  return write;
+}
+
 const msgCache = new Map<string, { at: number; messages: Json[] }>();
 const inFlight = new Map<string, Promise<unknown>>();
 const contactIndex = new Map<
@@ -280,7 +290,7 @@ const chatPreviews = createChatPreviews({
   save: async () => {
     if (chatCache) {
       try {
-        await atomicWriteJson(chatCachePath, chatCache);
+        await saveChatCache();
       } catch {
         console.error(
           "[chat-preview-cache] プレビューを保存できませんでした。",
@@ -323,6 +333,7 @@ const commands = createCommandService({
   boxCursor,
   avatarDir,
   chatCachePath,
+  saveChatCache,
   storagePath,
   lineDevice: LINE_DEVICE,
   lineVersion: LINE_VERSION,
@@ -1330,7 +1341,7 @@ async function hydrateAvatars(chats: ChatRow[]) {
   });
   if (chatCache) {
     try {
-      await atomicWriteJson(chatCachePath, chatCache);
+      await saveChatCache();
     } catch (error) {
       console.error("[chat-avatar-cache]", error);
     }
@@ -1415,7 +1426,7 @@ async function upsertChatFromMessage(message: Json) {
   chatCache.chats = [row, ...chatCache.chats.filter((c) => c.mid !== peer)];
   chatCache.at = Date.now();
   try {
-    await atomicWriteJson(chatCachePath, chatCache);
+    await saveChatCache();
   } catch (error) {
     console.error("[chat-message-cache]", peer, error);
   }
@@ -1452,7 +1463,7 @@ async function upsertChatFromContact(mid: string) {
   chatCache.chats = [row, ...chatCache.chats.filter((c) => c.mid !== mid)];
   chatCache.at = Date.now();
   try {
-    await atomicWriteJson(chatCachePath, chatCache);
+    await saveChatCache();
   } catch (error) {
     console.error("[chat-contact-cache]", mid, error);
   }

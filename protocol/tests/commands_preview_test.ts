@@ -3,6 +3,7 @@ import type { Client } from "@evex/linejs";
 import { type CommandRuntime, createCommandService } from "../src/commands.ts";
 import { policyFor } from "../src/cache_policy.ts";
 import { createChatPreviews } from "../src/chat_previews.ts";
+import { atomicWriteJson } from "../src/storage.ts";
 
 type Json = Record<string, unknown>;
 
@@ -73,6 +74,7 @@ function commandFixture(
     boxCursor: new Map([[chat.mid, { messageId: 2, deliveredTime: 20 }]]),
     avatarDir: "",
     chatCachePath,
+    saveChatCache: () => atomicWriteJson(chatCachePath, chatCache),
     storagePath: "",
     lineDevice: "DESKTOPWIN",
     lineVersion: "",
@@ -82,7 +84,6 @@ function commandFixture(
     storeBoxCursor: () => {},
     existingFile: () => Promise.resolve(null),
     loadDiskContacts: noOp,
-    saveDiskContacts: noOp,
     refreshContactIndex: noOp,
     hydrateAvatars: noOp,
     hydratePreviews: () => {

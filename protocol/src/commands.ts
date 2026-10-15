@@ -6,7 +6,6 @@ import {
 } from "@evex/linejs";
 import { FileStorage } from "@evex/linejs/storage";
 import { join } from "@std/path";
-import { atomicWriteJson } from "./storage.ts";
 import type { CachePolicy } from "./cache_policy.ts";
 import { friendName, picturePathOf } from "./contacts.ts";
 import type { LineDevice } from "./auth.ts";
@@ -44,6 +43,7 @@ export type CommandRuntime = {
   boxCursor: Map<string, BoxCursor>;
   avatarDir: string;
   chatCachePath: string;
+  saveChatCache: () => Promise<void>;
   storagePath: string;
   lineDevice: LineDevice;
   lineVersion: string;
@@ -425,7 +425,7 @@ export function createCommandService(runtime: CommandRuntime) {
       chatCache = { at: Date.now(), chats };
       runtime.setChatCache(chatCache);
       try {
-        await atomicWriteJson(chatCachePath, chatCache);
+        await runtime.saveChatCache();
       } catch (error) {
         console.error("[chat-list-cache]", error);
       }
