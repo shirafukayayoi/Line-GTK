@@ -20,6 +20,10 @@ pub(super) fn same_message_list(
 
 pub(super) fn apply_messages(state: &AppState, mut messages: Vec<MessageInfo>) {
     clear_messages(state);
+    state
+        .reply_messages
+        .borrow_mut()
+        .extend(messages.iter().map(|m| (m.id.clone(), m.clone())));
     state.media_queue.borrow_mut().clear();
     *state.stick_bottom.borrow_mut() = true;
     messages.sort_by_key(|m| m.created_time);
@@ -56,6 +60,10 @@ pub(super) fn apply_messages(state: &AppState, mut messages: Vec<MessageInfo>) {
     let state_c = state.clone();
     let batch = Rc::new(RefCell::new(messages));
     glib::idle_add_local(move || {
+        // トーク変更後に、前の履歴や引用候補を挿入しない。
+        if *state_c.current_chat.borrow() != chat_mid {
+            return glib::ControlFlow::Break;
+        }
         let mut left = batch.borrow_mut();
         let take = left.len().min(14);
         if take == 0 {
@@ -111,6 +119,10 @@ pub(super) fn append_message(state: &AppState, msg: &MessageInfo, live: bool) {
         msg
     };
 
+    state
+        .reply_messages
+        .borrow_mut()
+        .insert(msg.id.clone(), msg.clone());
     let list = &state.message_list;
 
     // Date separator like mobile LINE (Today / Yesterday / Fri, Jul 24).
@@ -192,6 +204,11 @@ pub(super) fn append_message(state: &AppState, msg: &MessageInfo, live: bool) {
         .map(|p| std::path::Path::new(p).exists())
         .unwrap_or(false);
 
+    if let Some(quote) = msg.reply_to.as_ref() {
+        replies::append_quote(state, &bubble, quote);
+    }
+    replies::wire_context(&bubble, msg);
+
     if let Some(flex) = msg.flex.as_ref() {
         append_flex_card(state, &bubble, msg, flex);
     } else if is_audio {
@@ -215,6 +232,7 @@ pub(super) fn append_message(state: &AppState, msg: &MessageInfo, live: bool) {
                 .max_width_chars(42)
                 .css_classes(["line-bubble-text"])
                 .build();
+            label.set_extra_menu(Some(&replies::menu(msg)));
             bubble.append(&label);
             append_link_chips(state, &bubble, &msg.text);
         } else if !has_image && !waiting_visual {
@@ -959,6 +977,13 @@ pub(super) fn attach_audio_to_slot(state: &AppState, message_id: &str, path: &st
     while let Some(child) = bubble.first_child() {
         bubble.remove(&child);
     }
+    let original = state.reply_messages.borrow().get(message_id).cloned();
+    if let Some(quote) = original
+        .as_ref()
+        .and_then(|message| message.reply_to.as_ref())
+    {
+        replies::append_quote(state, &bubble, quote);
+    }
     let duration_ms = ffprobe_duration_ms(std::path::Path::new(path)).map(|v| v as i64);
     let msg = MessageInfo {
         id: message_id.to_string(),
@@ -974,6 +999,8 @@ pub(super) fn attach_audio_to_slot(state: &AppState, message_id: &str, path: &st
         file_path: Some(path.to_string()),
         duration_ms,
         flex: None,
+        decryption_failed: false,
+        reply_to: None,
     };
     append_voice_card(state, &bubble, &msg, true);
 }
@@ -1208,6 +1235,13 @@ pub(super) fn append_link_chips(_state: &AppState, bubble: &gtk::Box, text: &str
 }
 
 pub(super) fn clear_messages(state: &AppState) {
+    let changed_chat = state.reply_target.borrow().as_ref().is_some_and(|target| {
+        state.current_chat.borrow().as_deref() != Some(target.chat_mid.as_str())
+    });
+    if changed_chat {
+        replies::cancel(state);
+    }
+    state.reply_messages.borrow_mut().clear();
     stop_voice_playback(state);
     state.message_list.clear();
     state.media_slots.borrow_mut().clear();

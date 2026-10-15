@@ -53,7 +53,7 @@ pub struct ChatInfo {
     pub muted: bool,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, PartialEq)]
 pub struct FlexAction {
     #[serde(default)]
     pub label: String,
@@ -65,7 +65,7 @@ pub struct FlexAction {
     pub uri: Option<String>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, PartialEq)]
 pub struct FlexInfo {
     #[serde(rename = "altText", default)]
     pub alt_text: String,
@@ -76,7 +76,25 @@ pub struct FlexInfo {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+pub struct ReplyInfo {
+    #[serde(rename = "messageId")]
+    pub message_id: String,
+    #[serde(default)]
+    pub text: String,
+    #[serde(default)]
+    pub from: String,
+    #[serde(default)]
+    pub mine: bool,
+    #[serde(rename = "contentType", default)]
+    pub content_type: String,
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq)]
 pub struct MessageInfo {
+    #[serde(rename = "replyTo", default)]
+    pub reply_to: Option<ReplyInfo>,
+    #[serde(rename = "decryptionFailed", default)]
+    pub decryption_failed: bool,
     #[serde(default)]
     pub id: String,
     #[serde(default)]
@@ -128,7 +146,7 @@ pub enum ProtocolEvent {
         pin: String,
     },
     Listening,
-    Message(MessageInfo),
+    Message(Box<MessageInfo>),
     Chats {
         chats: Vec<ChatInfo>,
         cached: bool,
