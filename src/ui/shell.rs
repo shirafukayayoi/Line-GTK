@@ -225,7 +225,7 @@ pub fn build_shell_page() -> ShellWidgets {
         chat_filter_bar.append(button);
     }
     let compact_filter_btn = gtk::MenuButton::builder()
-        .icon_name("view-filter-symbolic")
+        .icon_name("view-list-symbolic")
         .css_classes(["flat", "circular"])
         .halign(gtk::Align::Center)
         .visible(false)
