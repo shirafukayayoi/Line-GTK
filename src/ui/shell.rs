@@ -648,6 +648,7 @@ pub fn load_css() {
         r#"
 .line-reply-quote { border-left: 3px solid @accent_bg_color; padding: 4px 8px; background: alpha(@accent_bg_color, 0.08); border-radius: 4px; }
 .line-reply-preview { border-left: 3px solid @accent_bg_color; padding: 8px 10px; background: alpha(@accent_bg_color, 0.10); border-radius: 8px; }
+.line-reply-button { min-width: 28px; min-height: 28px; padding: 0; color: @accent_color; }
 
         .line-shell {
             background: @window_bg_color;

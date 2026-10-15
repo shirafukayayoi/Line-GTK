@@ -329,7 +329,18 @@ pub(super) fn append_message(state: &AppState, msg: &MessageInfo, live: bool) {
             .halign(gtk::Align::End)
             .hexpand(true)
             .build();
-        col.append(&bubble);
+        if let Some(reply) = replies::button(msg) {
+            let content = gtk::Box::builder()
+                .orientation(gtk::Orientation::Horizontal)
+                .spacing(6)
+                .halign(gtk::Align::End)
+                .build();
+            content.append(&reply);
+            content.append(&bubble);
+            col.append(&content);
+        } else {
+            col.append(&bubble);
+        }
 
         let tracks_receipt = !msg.content_type.eq_ignore_ascii_case("CALL");
         let (text, tooltip, read) = if tracks_receipt {
@@ -364,6 +375,9 @@ pub(super) fn append_message(state: &AppState, msg: &MessageInfo, live: bool) {
             .css_classes(["line-msg-time"])
             .build();
         outer.append(&bubble);
+        if let Some(reply) = replies::button(msg) {
+            outer.append(&reply);
+        }
         outer.append(&time);
         outer.append(&gtk::Box::builder().hexpand(true).build());
     }
