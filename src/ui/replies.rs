@@ -189,6 +189,26 @@ pub(super) fn menu(message: &MessageInfo) -> gio::Menu {
     menu
 }
 
+pub(super) fn button(message: &MessageInfo) -> Option<gtk::Button> {
+    if !eligible(message) {
+        return None;
+    }
+    let label = crate::i18n::t("reply");
+    let button = gtk::Button::builder()
+        .icon_name("mail-reply-sender-symbolic")
+        .tooltip_text(&label)
+        .action_target(&message.id.to_variant())
+        .action_name("win.reply-message")
+        .valign(gtk::Align::Center)
+        .css_classes(["flat", "circular", "line-reply-button"])
+        .build();
+    button.update_property(&[
+        gtk::accessible::Property::Label(&label),
+        gtk::accessible::Property::Description(&quote_text(&snapshot(message))),
+    ]);
+    Some(button)
+}
+
 fn popup(bubble: &gtk::Box, menu: &gio::Menu, x: f64, y: f64) {
     let popover = gtk::PopoverMenu::from_model(Some(menu));
     popover.set_parent(bubble);
