@@ -31,37 +31,29 @@ fn render(textures: &HashMap<String, gdk::Texture>, content: &EmojiText) {
     buffer.set_text("");
     let mut iter = buffer.end_iter();
     let mut previous = 0;
-    let mut measured = String::new();
-    let mut images = 0;
     for (start, end, key) in ranges(&content.text, &content.emojis) {
         buffer.insert(&mut iter, &content.text[previous..start]);
-        measured.push_str(&content.text[previous..start]);
         if let Some(texture) = textures.get(&key) {
             buffer.insert_paintable(&mut iter, texture);
-            measured.push('　');
-            images += 1;
         } else {
             // 取得失敗時も代替テキストを残し、本文を欠落させない。
             buffer.insert(&mut iter, &content.text[start..end]);
-            measured.push_str(&content.text[start..end]);
         }
         previous = end;
     }
     buffer.insert(&mut iter, &content.text[previous..]);
-    measured.push_str(&content.text[previous..]);
-    let layout = content.view.create_pango_layout(Some(&measured));
-    let width = (layout.pixel_size().0 + images * 14).clamp(28, 340);
-    content.view.set_width_request(width);
+    content.view.queue_resize();
 }
 
 pub(super) fn append(state: &AppState, bubble: &gtk::Box, message: &MessageInfo) {
-    let view = gtk::TextView::builder()
-        .editable(false)
-        .cursor_visible(false)
-        .wrap_mode(gtk::WrapMode::WordChar)
-        .accepts_tab(false)
-        .css_classes(["line-bubble-text", "line-emoji-text"])
-        .build();
+    let view: gtk::TextView = glib::Object::builder::<super::emoji_view::EmojiView>()
+        .property("editable", false)
+        .property("cursor-visible", false)
+        .property("wrap-mode", gtk::WrapMode::WordChar)
+        .property("accepts-tab", false)
+        .build()
+        .upcast();
+    view.set_css_classes(&["line-bubble-text", "line-emoji-text"]);
     view.set_extra_menu(Some(&replies::menu(message)));
     view.update_property(&[gtk::accessible::Property::Label(&message.text)]);
     let content = EmojiText {
@@ -70,23 +62,6 @@ pub(super) fn append(state: &AppState, bubble: &gtk::Box, message: &MessageInfo)
         emojis: message.emojis.clone(),
     };
     render(&state.emoji_textures.borrow(), &content);
-    // 親の日本語フォントが適用された後に幅を測り直す。
-    let textures = state.emoji_textures.clone();
-    let weak = view.downgrade();
-    let text = message.text.clone();
-    let emojis = message.emojis.clone();
-    view.connect_map(move |_| {
-        if let Some(view) = weak.upgrade() {
-            render(
-                &textures.borrow(),
-                &EmojiText {
-                    view,
-                    text: text.clone(),
-                    emojis: emojis.clone(),
-                },
-            );
-        }
-    });
     state.emoji_views.borrow_mut().push(content);
     bubble.append(&view);
 }

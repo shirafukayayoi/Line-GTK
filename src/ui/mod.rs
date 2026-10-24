@@ -11,6 +11,7 @@ mod composer_media;
 mod contact_blocks;
 mod diagnostics;
 mod downloads;
+mod emoji_view;
 mod emojis;
 mod events;
 mod friends;
