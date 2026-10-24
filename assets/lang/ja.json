@@ -50,7 +50,7 @@
   "reply_media_audio": "ボイスメッセージ",
   "reply_media_file": "ファイル",
   "reply_unavailable": "元のメッセージを表示できません",
-  "composer_shortcuts": "Enterで送信、Shift＋Enterで改行",
+  "composer_shortcuts": "Ctrl＋Enterで送信、Enterで改行",
   "type_message": "メッセージを入力…",
   "settings": "設定",
   "features": "機能",

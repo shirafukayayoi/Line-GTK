@@ -38,7 +38,7 @@ Unofficial native LINE client for Linux. GTK4 / Libadwaita UI with a Deno protoc
 - [ ] Voice call (WIP)
 - [ ] Account switcher
 
-メッセージ入力欄ではEnterで送信、Shift＋Enterで改行できます。複数行の貼り付けにも対応し、入力欄は内容に応じて広がり、長文ではスクロールできます。
+メッセージ入力の改行対応とキー操作の変更は個人用で、上流へのPR対象外です。Enterで改行、Ctrl＋Enterで送信できます。複数行の貼り付けにも対応し、入力欄は内容に応じて広がり、長文ではスクロールできます。
 
 メッセージ横の矢印ボタンを押すと引用元が選ばれ、そのまま入力欄で返信を書けます。右クリックの「リプライ」からも選べます。×ボタンまたはEscで取り消せます。別のトークへ移ると引用元を解除します。
 

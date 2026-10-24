@@ -50,7 +50,7 @@
   "reply_media_audio": "ข้อความเสียง",
   "reply_media_file": "ไฟล์",
   "reply_unavailable": "ไม่สามารถแสดงข้อความต้นฉบับได้",
-  "composer_shortcuts": "Enter เพื่อส่ง, Shift+Enter เพื่อขึ้นบรรทัดใหม่",
+  "composer_shortcuts": "Ctrl+Enter เพื่อส่ง, Enter เพื่อขึ้นบรรทัดใหม่",
   "type_message": "พิมพ์ข้อความ…",
   "settings": "ตั้งค่า",
   "features": "ฟีเจอร์",

@@ -50,7 +50,7 @@
   "reply_media_audio": "Voice message",
   "reply_media_file": "File",
   "reply_unavailable": "Original message unavailable",
-  "composer_shortcuts": "Enter to send, Shift+Enter for a new line",
+  "composer_shortcuts": "Ctrl+Enter to send, Enter for a new line",
   "type_message": "Type a message…",
   "settings": "Settings",
   "features": "Features",

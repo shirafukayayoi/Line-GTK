@@ -127,16 +127,17 @@ impl Composer {
             let Some(view) = weak.upgrade() else {
                 return glib::Propagation::Proceed;
             };
-            // Shift付きの改行はGTKへ任せ、選択範囲の置換やスクロールも標準動作を使う。
-            if modifiers.intersects(
-                gtk::gdk::ModifierType::SHIFT_MASK
-                    | gtk::gdk::ModifierType::CONTROL_MASK
-                    | gtk::gdk::ModifierType::ALT_MASK
-                    | gtk::gdk::ModifierType::SUPER_MASK,
-            ) {
+            // 個人用の操作: EnterはGTK標準の改行、Ctrl＋Enterだけを送信にする。
+            if !modifiers.contains(gtk::gdk::ModifierType::CONTROL_MASK)
+                || modifiers.intersects(
+                    gtk::gdk::ModifierType::SHIFT_MASK
+                        | gtk::gdk::ModifierType::ALT_MASK
+                        | gtk::gdk::ModifierType::SUPER_MASK,
+                )
+            {
                 return glib::Propagation::Proceed;
             }
-            // 変換の確定を優先し、IMEが処理したEnterでは送信しない。
+            // 変換の確定を優先し、IMEが処理したCtrl＋Enterでは送信しない。
             if controller
                 .current_event()
                 .is_some_and(|event| view.im_context_filter_keypress(event))
