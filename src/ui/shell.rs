@@ -5,6 +5,7 @@ pub struct ShellWidgets {
     pub chat_list: gtk::ListBox,
     pub message_list: super::virtual_list::VirtualMessageList,
     pub message_scroll: gtk::ScrolledWindow,
+    pub history_btn: gtk::Button,
     pub composer: super::composer::Composer,
     pub reply_preview: gtk::Revealer,
     pub reply_title: gtk::Label,
@@ -583,6 +584,12 @@ pub fn build_shell_page() -> ShellWidgets {
     sticker_popover.set_parent(&sticker_btn);
 
     conversation.append(&chat_bar);
+    let history_btn = gtk::Button::builder()
+        .halign(gtk::Align::Center)
+        .css_classes(["flat", "caption"])
+        .visible(false)
+        .build();
+    conversation.append(&history_btn);
     conversation.append(&msg_stack);
     conversation.append(&jump_banner);
     conversation.append(&upload_revealer);
@@ -650,6 +657,7 @@ pub fn build_shell_page() -> ShellWidgets {
         chat_list,
         message_list,
         message_scroll,
+        history_btn,
         composer,
         reply_preview,
         reply_title,

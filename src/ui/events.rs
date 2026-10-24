@@ -574,6 +574,10 @@ pub(super) fn handle_event(state: &AppState, ev: ProtocolEvent) {
             error,
         } => {
             let pending = state.pending.borrow_mut().remove(&id);
+            if let Some(Pending::OlderMessages { chat_mid, account }) = pending {
+                history::response(state, id, &chat_mid, &account, ok, &result);
+                return;
+            }
             if let Some(Pending::Unsend {
                 account,
                 chat_mid,
@@ -730,6 +734,7 @@ pub(super) fn handle_event(state: &AppState, ev: ProtocolEvent) {
                 }
                 Some(Pending::FetchMessages { chat_mid, .. }) => {
                     if state.current_chat.borrow().as_deref() == Some(chat_mid.as_str()) {
+                        history::snapshot(state, &result);
                         let messages: Vec<MessageInfo> = result
                             .get("messages")
                             .cloned()
@@ -788,7 +793,8 @@ pub(super) fn handle_event(state: &AppState, ev: ProtocolEvent) {
                     | Pending::Unsend { .. }
                     | Pending::ResumeSync { .. }
                     | Pending::MarkReadOnce { .. }
-                    | Pending::ContactBlocks { .. },
+                    | Pending::ContactBlocks { .. }
+                    | Pending::OlderMessages { .. },
                 )
                 | None => {}
             }
@@ -931,6 +937,7 @@ pub(super) fn show_shell_restoring(state: &AppState) {
 }
 
 pub(super) fn show_login(state: &AppState, hint: &str) {
+    history::reset(state);
     *state.unread_sync.borrow_mut() = unread_sync::UnreadSync::default();
     state.notif_pending.borrow_mut().clear();
     resume_sync::cancel(state);

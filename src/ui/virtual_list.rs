@@ -9,6 +9,7 @@ use gtk::prelude::*;
 pub struct VirtualMessageList {
     view: gtk::ListView,
     store: gtk::gio::ListStore,
+    prepending: std::rc::Rc<std::cell::RefCell<Option<Vec<gtk::glib::BoxedAnyObject>>>>,
 }
 
 impl VirtualMessageList {
@@ -42,7 +43,11 @@ impl VirtualMessageList {
             .margin_bottom(8)
             .single_click_activate(false)
             .build();
-        Self { view, store }
+        Self {
+            view,
+            store,
+            prepending: Default::default(),
+        }
     }
 
     pub fn widget(&self) -> &gtk::ListView {
@@ -51,7 +56,33 @@ impl VirtualMessageList {
 
     pub fn append(&self, row: &impl IsA<gtk::Widget>) {
         let widget = row.clone().upcast::<gtk::Widget>();
-        self.store.append(&gtk::glib::BoxedAnyObject::new(widget));
+        let object = gtk::glib::BoxedAnyObject::new(widget);
+        if let Some(rows) = self.prepending.borrow_mut().as_mut() {
+            rows.push(object);
+        } else {
+            self.store.append(&object);
+        }
+    }
+
+    /// 既存行を作り直さず、まとめた行を指定した行の直前に挿入する。
+    pub fn insert_before(&self, next: Option<&gtk::Widget>, build: impl FnOnce()) {
+        *self.prepending.borrow_mut() = Some(Vec::new());
+        build();
+        let rows = self.prepending.borrow_mut().take().unwrap_or_default();
+        let position = next
+            .and_then(|next| self.position(next))
+            .unwrap_or(self.store.n_items());
+        self.store.splice(position, 0, &rows);
+    }
+
+    pub fn previous(&self, row: &gtk::Widget) -> Option<gtk::Widget> {
+        self.position(row)?
+            .checked_sub(1)
+            .and_then(|index| self.item_at(index))
+    }
+
+    fn position(&self, widget: &gtk::Widget) -> Option<u32> {
+        (0..self.store.n_items()).find(|index| self.item_at(*index).as_ref() == Some(widget))
     }
 
     pub fn remove(&self, row: &impl IsA<gtk::Widget>) {

@@ -25,7 +25,7 @@ fn text(state: &AppState, event: &ChatEventInfo) -> String {
     };
     crate::i18n::tf(key, &[("actor", &actor), ("targets", &targets)])
 }
-pub(super) fn append(state: &AppState, event: &ChatEventInfo) {
+pub(super) fn append(state: &AppState, event: &ChatEventInfo) -> gtk::Box {
     let label = gtk::Label::builder()
         .label(text(state, event))
         .use_markup(false)
@@ -50,6 +50,7 @@ pub(super) fn append(state: &AppState, event: &ChatEventInfo) {
         .chat_event_labels
         .borrow_mut()
         .push((event.clone(), label));
+    row
 }
 pub(super) fn refresh(state: &AppState) {
     for (event, label) in state.chat_event_labels.borrow().iter() {

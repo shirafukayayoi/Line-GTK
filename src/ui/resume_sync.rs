@@ -264,6 +264,7 @@ pub(super) fn response(
             failed(state);
             return;
         };
+        history::snapshot(state, &result);
         // 送信中の吹き出しを消さず、完了後に最新の表示データと統合する。
         if state.pending_rows.borrow().is_empty() {
             apply_resumed_messages(state, messages);
@@ -357,16 +358,29 @@ fn merged_messages(
     messages
 }
 
-fn apply_resumed_messages(state: &AppState, incoming: Vec<MessageInfo>) {
+pub(super) fn apply_resumed_messages(state: &AppState, incoming: Vec<MessageInfo>) {
     invalidate_history(state);
     let messages = merged_messages(state.reply_messages.borrow().values().cloned(), incoming);
     let stick = *state.stick_bottom.borrow();
     let scroll = state.message_scroll.vadjustment().value();
     clear_messages(state);
     *state.msg_list_fp.borrow_mut() = None;
+    let last_incoming = messages
+        .iter()
+        .rev()
+        .find(|message| {
+            !message.mine && message.chat_event.is_none() && message.content_type != "UNSENT"
+        })
+        .map(|message| message.id.clone());
+    let count = messages.len();
     for message in messages {
         append_message(state, &message, false);
     }
+    *state.last_incoming_id.borrow_mut() = last_incoming;
+    state.chat_subtitle.set_text(&crate::i18n::tf(
+        "messages_count",
+        &[("n", &count.to_string())],
+    ));
     if state.message_list.first_child().is_some() {
         set_msg_state(state, "list", None);
     }

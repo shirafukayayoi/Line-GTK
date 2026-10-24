@@ -36,6 +36,7 @@ pub(super) struct AppState {
     pub chat_list: gtk::ListBox,
     pub message_list: virtual_list::VirtualMessageList,
     pub message_scroll: gtk::ScrolledWindow,
+    pub history_btn: gtk::Button,
     pub composer: super::composer::Composer,
     pub reply_preview: gtk::Revealer,
     pub reply_title: gtk::Label,
@@ -161,6 +162,7 @@ pub(super) struct AppState {
     pub self_picture_url: Rc<RefCell<Option<String>>>,
     pub msg_list_fp: Rc<RefCell<Option<MessageListFingerprint>>>,
     pub message_render_generation: Rc<RefCell<u64>>,
+    pub history: Rc<RefCell<super::history::History>>,
     pub history_request_generation: Rc<RefCell<u64>>,
     pub resume_sync: Rc<RefCell<super::resume_sync::ResumeSync>>,
     pub notif_pending: Rc<RefCell<HashMap<String, PendingNotif>>>,
@@ -214,6 +216,10 @@ pub(super) enum Pending {
     LoginEmail,
     ListChats,
     ListFriends,
+    OlderMessages {
+        chat_mid: String,
+        account: String,
+    },
     FetchMessages {
         chat_mid: String,
         generation: u64,

@@ -12,6 +12,10 @@ pub(super) fn same_message_list(
 }
 
 pub(super) fn apply_messages(state: &AppState, mut messages: Vec<MessageInfo>) {
+    if state.history.borrow().loaded {
+        super::resume_sync::apply_resumed_messages(state, messages);
+        return;
+    }
     if let Some(account) = state.self_mid.borrow().clone() {
         state.unsent_ids.borrow_mut().extend(
             messages
@@ -166,7 +170,8 @@ pub(super) fn append_message(state: &AppState, msg: &MessageInfo, live: bool) {
     }
 
     if let Some(event) = &msg.chat_event {
-        chat_events::append(state, event);
+        let row = chat_events::append(state, event);
+        state.message_rows.borrow_mut().insert(msg.id.clone(), row);
         return;
     }
     // ListViewが行のフォーカスを管理するため、ListBox専用の行を入れ子にしない。

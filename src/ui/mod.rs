@@ -15,6 +15,7 @@ mod emojis;
 mod events;
 mod friends;
 mod hidden_chats;
+mod history;
 mod login;
 mod media;
 mod message_senders;
@@ -158,6 +159,7 @@ fn build_ui(app: &Application, repo_root: PathBuf, data_dir: PathBuf) -> Result<
         chat_list: shell.chat_list,
         message_list: shell.message_list,
         message_scroll: shell.message_scroll,
+        history_btn: shell.history_btn,
         composer: shell.composer,
         reply_preview: shell.reply_preview,
         reply_title: shell.reply_title,
@@ -281,6 +283,7 @@ fn build_ui(app: &Application, repo_root: PathBuf, data_dir: PathBuf) -> Result<
         self_picture_url: Rc::new(RefCell::new(None)),
         msg_list_fp: Rc::new(RefCell::new(None)),
         message_render_generation: Rc::new(RefCell::new(0)),
+        history: Rc::new(RefCell::new(history::History::default())),
         history_request_generation: Rc::new(RefCell::new(0)),
         resume_sync: Rc::new(RefCell::new(resume_sync::ResumeSync::default())),
         notif_pending: Rc::new(RefCell::new(HashMap::new())),
@@ -303,6 +306,7 @@ fn build_ui(app: &Application, repo_root: PathBuf, data_dir: PathBuf) -> Result<
     replies::wire(&state);
     unsend::wire(&state);
     wire_scroll_pin(&state);
+    history::wire(&state);
     wire_notification_actions(&state);
     resume_sync::wire(&state);
     sync_tray(&state);
@@ -1125,6 +1129,7 @@ fn apply_ui_language(state: &AppState) {
     replies::refresh(state);
     chat_events::refresh(state);
     state.composer.apply_language();
+    history::refresh(state);
     chat_filter::apply_language(state);
     state.album_btn.set_label(&crate::i18n::t("albums"));
     state
@@ -1690,6 +1695,7 @@ fn open_chat(state: &AppState, chat: &ChatInfo) {
             cfg.save(&state.data_dir);
         }
     }
+    history::reset(state);
     *state.stick_bottom.borrow_mut() = true;
     state.chat_title.set_text(&chat.name);
     let subtitle = if chat.unread > 0 {
