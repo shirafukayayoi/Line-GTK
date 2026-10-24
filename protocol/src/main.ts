@@ -2018,6 +2018,14 @@ async function handle(req: Json) {
           !!params.quiet,
         );
         break;
+      case "fetch_older_messages":
+        await commands.fetchOlderMessages(
+          id,
+          String(params.chatMid ?? ""),
+          params.cursor,
+          Number(params.limit ?? 40),
+        );
+        break;
       case "send_message":
         await commands.sendMessage(
           id,

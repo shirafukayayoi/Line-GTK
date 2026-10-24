@@ -526,3 +526,25 @@ for (const saveFails of [false, true]) {
     );
   });
 }
+
+Deno.test("過去ページを保存していても最新の連続した範囲から履歴を遡り始める", async () => {
+  const fixture = commandFixture("メモリ");
+  const messages = [1, 2, 90, 91].map((n) => ({
+    id: String(n),
+    createdTime: n,
+    text: String(n),
+    historyCursor: { messageId: String(n), deliveredTime: String(n) },
+  }));
+  fixture.runtime.msgCache.set(fixture.chat.mid, {
+    at: Date.now(),
+    messages,
+    latestCount: 2,
+  });
+  await fixture.commands.fetchMessages(1, fixture.chat.mid, 40);
+  const result = fixture.okResults[0] as {
+    messages: { id: string }[];
+    historyCursor: unknown;
+  };
+  assertEquals(result.messages.map((message) => message.id), ["90", "91"]);
+  assertEquals(result.historyCursor, { messageId: "90", deliveredTime: "90" });
+});

@@ -9,6 +9,11 @@ import type { LineDevice } from "./auth.ts";
 import { needsDecryptionRefresh } from "./e2ee_guard.ts";
 import { fetchGroupProfiles } from "./groups.ts";
 import type { ReadPermission } from "./read_policy.ts";
+import {
+  createHistoryService,
+  historyState,
+  withHistoryCursor,
+} from "./history.ts";
 import { replyMessageId, replySnapshot } from "./replies.ts";
 
 type Json = Record<string, unknown>;
@@ -39,7 +44,7 @@ export type CommandRuntime = {
   setAuthDead: (dead: boolean) => void;
   getChatCache: () => ChatCache | null;
   setChatCache: (cache: ChatCache | null) => void;
-  msgCache: Map<string, { at: number; messages: Json[] }>;
+  msgCache: Map<string, { at: number; messages: Json[]; latestCount?: number }>;
   contactIndex: Map<string, ContactInfo>;
   boxCursor: Map<string, BoxCursor>;
   avatarDir: string;
@@ -70,7 +75,11 @@ export type CommandRuntime = {
   loadDiskMessages: (chatMid: string) => Promise<Json[] | null>;
   saveDiskMessages: (chatMid: string, messages: Json[]) => Promise<void>;
   forUiMessages: (messages: Json[], chatMid?: string) => Promise<Json[]>;
-  hydrateMedia: (messages: Json[], chatMid: string) => Promise<void>;
+  hydrateMedia: (
+    messages: Json[],
+    chatMid: string,
+    opts?: { isolated?: boolean },
+  ) => Promise<void>;
   summarizeTalkMessage: (
     message: TalkMessage,
     opts?: { withMedia?: boolean },
@@ -597,9 +606,13 @@ export function createCommandService(runtime: CommandRuntime) {
         !cached.messages.some(needsDecryptionRefresh)
       ) {
         await updateChatPreview(chatMid, cached.messages);
-        const ui = await forUiMessages(cached.messages, chatMid);
-        ok(id, { messages: ui, cached: true });
-        hydrateMedia(cached.messages, chatMid);
+        // 過去ページのキャッシュがあっても、最新の連続した範囲から遡り始める。
+        const latest = cached.messages.slice(
+          -(cached.latestCount ?? cached.messages.length),
+        ).slice(-limit);
+        const ui = await forUiMessages(latest, chatMid);
+        ok(id, { messages: ui, cached: true, ...historyState(latest) });
+        hydrateMedia(latest, chatMid);
         return;
       }
 
@@ -607,7 +620,7 @@ export function createCommandService(runtime: CommandRuntime) {
       if (!force) {
         const disk = await loadDiskMessages(chatMid);
         if (disk?.length) {
-          msgCache.set(chatMid, { at: Date.now(), messages: disk });
+          msgCache.set(chatMid, { at: 0, messages: disk });
           await updateChatPreview(chatMid, disk);
           emitEvent("messages", {
             chatMid,
@@ -650,7 +663,12 @@ export function createCommandService(runtime: CommandRuntime) {
             const chat = await client!.getChat(chatMid);
             const messages = await chat.fetchMessages(limit);
             for (const m of messages) {
-              out.push(await summarizeTalkMessage(m, { withMedia: false }));
+              out.push(
+                withHistoryCursor(
+                  await summarizeTalkMessage(m, { withMedia: false }),
+                  m.raw,
+                ),
+              );
             }
           } else {
             usedBoxes = true;
@@ -674,7 +692,10 @@ export function createCommandService(runtime: CommandRuntime) {
           if (!cursor) {
             msgCache.set(chatMid, { at: Date.now(), messages: [] });
             await updateChatPreview(chatMid, []);
-            ok(id, { messages: await forUiMessages([], chatMid) });
+            ok(id, {
+              messages: await forUiMessages([], chatMid),
+              ...historyState([]),
+            });
             emitEvent("progress", {
               scope: "messages",
               chatMid,
@@ -721,7 +742,12 @@ export function createCommandService(runtime: CommandRuntime) {
                   officialChanged = true;
                 }
               }
-              out.push(await summarizeRawMessage(raw, { withMedia: false }));
+              out.push(
+                withHistoryCursor(
+                  await summarizeRawMessage(raw, { withMedia: false }),
+                  raw,
+                ),
+              );
             } catch (e) {
               console.error("[fetch msg skip]", e);
             }
@@ -740,10 +766,18 @@ export function createCommandService(runtime: CommandRuntime) {
         }
 
         out.sort((a, b) => Number(a.createdTime) - Number(b.createdTime));
-        msgCache.set(chatMid, { at: Date.now(), messages: out });
+        msgCache.set(chatMid, {
+          at: Date.now(),
+          messages: out,
+          latestCount: out.length,
+        });
         await saveDiskMessages(chatMid, out);
         await updateChatPreview(chatMid, out);
-        ok(id, { messages: await forUiMessages(out, chatMid), cached: false });
+        ok(id, {
+          messages: await forUiMessages(out, chatMid),
+          cached: false,
+          ...historyState(out),
+        });
         emitEvent("progress", {
           scope: "messages",
           chatMid,
@@ -867,6 +901,7 @@ export function createCommandService(runtime: CommandRuntime) {
       withLogin(id, () => doLoginToken(id, token)),
     listChats: doListChats,
     fetchMessages: doFetchMessages,
+    fetchOlderMessages: createHistoryService(runtime),
     sendMessage: doSend,
   };
 }
