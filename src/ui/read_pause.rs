@@ -225,7 +225,7 @@ pub(super) fn wire(state: &AppState) {
     });
     for widget in [
         state.message_scroll.clone().upcast::<gtk::Widget>(),
-        state.composer.clone().upcast::<gtk::Widget>(),
+        state.composer.view.clone().upcast::<gtk::Widget>(),
     ] {
         let click = gtk::GestureClick::new();
         click.set_button(1);

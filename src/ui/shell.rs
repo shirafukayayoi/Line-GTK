@@ -5,7 +5,7 @@ pub struct ShellWidgets {
     pub chat_list: gtk::ListBox,
     pub message_list: super::virtual_list::VirtualMessageList,
     pub message_scroll: gtk::ScrolledWindow,
-    pub composer: gtk::Entry,
+    pub composer: super::composer::Composer,
     pub reply_preview: gtk::Revealer,
     pub reply_title: gtk::Label,
     pub reply_text: gtk::Label,
@@ -452,14 +452,7 @@ pub fn build_shell_page() -> ShellWidgets {
         .valign(gtk::Align::Center)
         .css_classes(["line-composer"])
         .build();
-    let composer = gtk::Entry::builder()
-        .placeholder_text("Type a message…")
-        .show_emoji_icon(true)
-        .enable_emoji_completion(true)
-        .hexpand(true)
-        .valign(gtk::Align::Center)
-        .css_classes(["line-composer-entry"])
-        .build();
+    let composer = super::composer::Composer::new();
     let attach_btn = gtk::Button::builder()
         .icon_name("mail-attachment-symbolic")
         .tooltip_text("Attach file")
@@ -486,7 +479,7 @@ pub fn build_shell_page() -> ShellWidgets {
     composer_row.append(&attach_btn);
     composer_row.append(&sticker_btn);
     composer_row.append(&mic_btn);
-    composer_row.append(&composer);
+    composer_row.append(&composer.container);
     composer_row.append(&send_btn);
 
     // Recording overlay: cancel | live wave | timer | send (replaces composer; no toast)
@@ -1276,11 +1269,20 @@ pub fn load_css() {
         }
         .line-composer-entry {
             border-radius: 18px;
-            min-height: 34px;
-            padding-top: 0;
-            padding-bottom: 0;
-            padding-left: 12px;
-            padding-right: 12px;
+            background: alpha(currentColor, 0.08);
+            border: 1px solid alpha(@borders, 0.4);
+        }
+        .line-composer-entry:focus-within {
+            border-color: @accent_color;
+        }
+        .line-composer-text, .line-composer-text text {
+            background: transparent;
+        }
+        .line-composer-emoji {
+            min-width: 28px;
+            min-height: 28px;
+            padding: 0;
+            margin: 3px;
         }
         .line-send-btn {
             min-height: 34px;
@@ -1296,8 +1298,6 @@ pub fn load_css() {
         }
         .line-composer-narrow .line-composer-entry {
             min-height: 32px;
-            padding-left: 10px;
-            padding-right: 10px;
         }
         .line-sticker-popover {
             padding: 0;

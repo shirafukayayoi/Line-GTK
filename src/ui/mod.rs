@@ -6,6 +6,7 @@ mod calls;
 mod chat_events;
 mod chat_filter;
 mod chats;
+mod composer;
 mod composer_media;
 mod contact_blocks;
 mod diagnostics;
@@ -1007,8 +1008,8 @@ fn wire_scroll_pin(state: &AppState) {
 }
 
 fn send_current(state: &AppState) {
-    let text = state.composer.text().trim().to_string();
-    if text.is_empty() {
+    let text = state.composer.text().to_string();
+    if text.trim().is_empty() {
         return;
     }
     let Some(chat_mid) = state.current_chat.borrow().clone() else {
@@ -1123,24 +1124,13 @@ fn apply_ui_language(state: &AppState) {
     }
     replies::refresh(state);
     chat_events::refresh(state);
-    state
-        .composer
-        .update_property(&[gtk::accessible::Property::Label(&crate::i18n::t(
-            "type_message",
-        ))]);
+    state.composer.apply_language();
     chat_filter::apply_language(state);
     state.album_btn.set_label(&crate::i18n::t("albums"));
     state
         .album_btn
         .set_tooltip_text(Some(&crate::i18n::t("albums")));
     state.side_title.set_text(&crate::i18n::t("chats"));
-    state
-        .composer
-        .set_placeholder_text(Some(&crate::i18n::t("type_message")));
-    state.composer.set_icon_tooltip_text(
-        gtk::EntryIconPosition::Secondary,
-        Some(&crate::i18n::t("insert_emoji")),
-    );
     if *state.composer_narrow.borrow() {
         state.send_btn.set_label("");
         state.send_btn.set_icon_name("mail-send-symbolic");
@@ -1320,7 +1310,7 @@ fn wire_drop_attachments(state: &AppState) {
 
 fn wire_actions(state: &AppState) {
     let s = state.clone();
-    state.composer.connect_activate(move |_| send_current(&s));
+    state.composer.connect_send(move || send_current(&s));
 
     let s = state.clone();
     state.send_btn.connect_clicked(move |_| send_current(&s));
