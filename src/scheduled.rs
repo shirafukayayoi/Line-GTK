@@ -1,9 +1,9 @@
+use crate::private_file::write_private;
 use crate::protocol::ReplyInfo;
 use anyhow::{Context, Result, ensure};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
-use std::fs::{self, OpenOptions};
-use std::io::Write;
+use std::fs;
 use std::path::{Path, PathBuf};
 
 pub const DISPATCH_WINDOW_MS: i64 = 2000;
@@ -259,33 +259,6 @@ impl Store {
         self.queue = next;
         Ok(())
     }
-}
-
-fn write_private(path: &Path, bytes: &[u8]) -> Result<()> {
-    let directory = path.parent().context("予約の保存先がありません")?;
-    crate::config::ensure_private_dir(directory)?;
-    let temporary = directory.join(format!(".scheduled-replies-{}.tmp", std::process::id()));
-    // 異常終了後の同じPIDやシンボリックリンクを上書きしない。
-    let mut options = OpenOptions::new();
-    options.write(true).create_new(true);
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::OpenOptionsExt;
-        options.mode(0o600);
-    }
-    let mut file = options.open(&temporary)?;
-    let result = (|| -> Result<()> {
-        file.write_all(bytes)?;
-        file.sync_all()?;
-        fs::rename(&temporary, path)?;
-        #[cfg(unix)]
-        fs::File::open(directory)?.sync_all()?;
-        Ok(())
-    })();
-    if result.is_err() {
-        let _ = fs::remove_file(&temporary);
-    }
-    result
 }
 
 pub fn parse_local_date(date: &str, hour: u32, minute: u32) -> Result<i64> {
