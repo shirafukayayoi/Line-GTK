@@ -27,6 +27,7 @@ pub(super) type MessageListFingerprint = (String, Vec<MessageInfo>);
 
 #[derive(Clone)]
 pub(super) struct AppState {
+    pub scheduled: Rc<RefCell<super::scheduled_replies::State>>,
     pub auto_login: Rc<RefCell<super::auto_login::State>>,
     pub app: Application,
     pub sidecar: Rc<Sidecar>,
@@ -189,6 +190,11 @@ pub(super) struct PendingNotif {
 
 #[derive(Debug, Clone)]
 pub(super) enum Pending {
+    ScheduledSend {
+        reservation_id: u64,
+        account: String,
+        chat_mid: String,
+    },
     Unsend {
         account: String,
         chat_mid: String,

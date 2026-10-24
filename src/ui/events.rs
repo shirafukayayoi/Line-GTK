@@ -84,6 +84,7 @@ pub(super) fn handle_event(state: &AppState, ev: ProtocolEvent) {
             on_logged_in(state, &result);
         }
         ProtocolEvent::SessionFailed { error } => {
+            scheduled_replies::interrupt(state);
             *state.session_ready.borrow_mut() = false;
             hide_upload_progress(state);
             if auto_login::restore_failed(state, &error) {
@@ -578,6 +579,23 @@ pub(super) fn handle_event(state: &AppState, ev: ProtocolEvent) {
             error,
         } => {
             let pending = state.pending.borrow_mut().remove(&id);
+            if let Some(Pending::ScheduledSend {
+                reservation_id,
+                account,
+                chat_mid,
+            }) = pending
+            {
+                scheduled_replies::response(
+                    state,
+                    reservation_id,
+                    &account,
+                    &chat_mid,
+                    ok,
+                    &result,
+                    error.as_deref(),
+                );
+                return;
+            }
             if let Some(Pending::OlderMessages { chat_mid, account }) = pending {
                 history::response(state, id, &chat_mid, &account, ok, &result);
                 return;
@@ -794,6 +812,7 @@ pub(super) fn handle_event(state: &AppState, ev: ProtocolEvent) {
                 }
                 Some(
                     Pending::Album { .. }
+                    | Pending::ScheduledSend { .. }
                     | Pending::Unsend { .. }
                     | Pending::ResumeSync { .. }
                     | Pending::MarkReadOnce { .. }
@@ -805,6 +824,7 @@ pub(super) fn handle_event(state: &AppState, ev: ProtocolEvent) {
         }
         ProtocolEvent::Error(e) => toast(state, &e),
         ProtocolEvent::Exited(code) => {
+            scheduled_replies::interrupt(state);
             resume_sync::cancel(state);
             albums::close(state);
             hidden_chats::close(state);
@@ -859,6 +879,7 @@ pub(super) fn recover_sidecar(state: &AppState) {
 }
 
 pub(super) fn on_logged_in(state: &AppState, result: &serde_json::Value) {
+    scheduled_replies::interrupt(state);
     contact_blocks::reset(state);
     *state.unread_sync.borrow_mut() = unread_sync::UnreadSync::default();
     state.notif_pending.borrow_mut().clear();

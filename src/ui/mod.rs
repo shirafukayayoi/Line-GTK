@@ -26,6 +26,7 @@ mod pinned_chats;
 mod read_pause;
 mod replies;
 mod resume_sync;
+mod scheduled_replies;
 mod settings;
 mod shell;
 mod state;
@@ -149,6 +150,7 @@ fn build_ui(app: &Application, repo_root: PathBuf, data_dir: PathBuf) -> Result<
     let (tray_tx, tray_rx) = async_channel::unbounded::<crate::tray::TrayAction>();
 
     let state = AppState {
+        scheduled: Rc::new(RefCell::new(scheduled_replies::State::load(&data_dir))),
         auto_login: Rc::new(RefCell::new(auto_login::State::default())),
         contact_blocks: Rc::new(RefCell::new(contact_blocks::BlockState::default())),
         read_once_btn: shell.read_once_btn,
@@ -299,6 +301,7 @@ fn build_ui(app: &Application, repo_root: PathBuf, data_dir: PathBuf) -> Result<
     hidden_chats::wire(&state);
     contact_blocks::wire(&state);
     pinned_chats::wire(&state);
+    scheduled_replies::wire(&state);
     apply_ui_language(&state);
     apply_ui_motion(&state);
     wire_sidebar(&state);
@@ -1120,6 +1123,7 @@ fn begin_optimistic_send(state: &AppState, req_id: u64, chat_mid: &str, mut msg:
 fn apply_ui_language(state: &AppState) {
     crate::i18n::set_lang(&state.repo_root, &state.config.borrow().language);
     read_pause::apply_language(state);
+    scheduled_replies::apply_language(state);
     // 再ログインせず、プレビュー生成側にも選択した言語を反映する。
     if let Err(error) = state.sidecar.request(
         "set_language",
@@ -1433,6 +1437,7 @@ fn wire_actions(state: &AppState) {
                     contact_blocks::reset(&s2);
                     resume_sync::cancel(&s2);
                     *s2.session_ready.borrow_mut() = false;
+                    scheduled_replies::interrupt(&s2);
                     s2.pending.borrow_mut().clear();
                     *s2.current_chat.borrow_mut() = None;
                     *s2.discord_session_start.borrow_mut() = None;
@@ -1475,6 +1480,7 @@ fn wire_actions(state: &AppState) {
                     refresh_call_controls(&s2);
                     // Experimental call mode binds to session/device path: force re-login.
                     *s2.session_ready.borrow_mut() = false;
+                    scheduled_replies::interrupt(&s2);
                     s2.pending.borrow_mut().clear();
                     *s2.current_chat.borrow_mut() = None;
                     clear_list(&s2.chat_list);
@@ -1794,6 +1800,7 @@ fn restart_qr_login(state: &AppState) {
 }
 
 fn restart_login(state: &AppState) {
+    scheduled_replies::interrupt(state);
     auto_login::manual_restart(state);
     contact_blocks::reset(state);
     resume_sync::cancel(state);
