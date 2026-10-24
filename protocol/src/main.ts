@@ -482,6 +482,7 @@ const connectionRecovery = createConnectionRecovery({
 });
 
 const commands = createCommandService({
+  isBlocked: (mid) => contactBlocks.isBlocked(mid),
   recordOwnRead: (chatMid, through) => {
     unreadSync.handleOperation(
       { type: 40, param1: chatMid, param2: through },
@@ -1915,6 +1916,9 @@ async function handle(req: Json) {
       throw new Error("contact_blocked_send");
     }
     switch (method) {
+      case "send_scheduled_message":
+        ok(id, await commands.sendScheduledMessage(params));
+        break;
       case "unsend_message":
         ok(
           id,

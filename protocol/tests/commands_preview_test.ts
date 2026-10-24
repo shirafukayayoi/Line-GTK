@@ -1,4 +1,4 @@
-import { assertEquals } from "@std/assert";
+import { assertEquals, assertRejects } from "@std/assert";
 import type { Client } from "@evex/linejs";
 import { type CommandRuntime, createCommandService } from "../src/commands.ts";
 import { policyFor } from "../src/cache_policy.ts";
@@ -547,4 +547,61 @@ Deno.test("過去ページを保存していても最新の連続した範囲か
   };
   assertEquals(result.messages.map((message) => message.id), ["90", "91"]);
   assertEquals(result.historyCursor, { messageId: "90", deliveredTime: "90" });
+});
+
+Deno.test("予約返信は暗号化経路を一度だけ呼び、通常送信のフォールバックを使わない", async () => {
+  for (const fail of [false, true]) {
+    const fixture = commandFixture("メモリ");
+    const client = fixture.runtime.getClient()!;
+    class MockRequest {
+      constructor(_client: unknown) {}
+    }
+    Object.assign(client.base, {
+      profile: { mid: "u-self" },
+      request: new MockRequest(null),
+    });
+    const calls: Record<string, unknown>[] = [];
+    client.base.talk.sendMessage = (options) => {
+      calls.push(options as Record<string, unknown>);
+      return fail
+        ? Promise.reject(new Error("模擬切断"))
+        : Promise.resolve({ id: "9007199254740994" } as never);
+    };
+    fixture.runtime.isListening = () => true;
+    fixture.runtime.isBlocked = () => false;
+    fixture.runtime.sentMessagePayload = () => ({
+      id: "9007199254740994",
+      text: "予約返信",
+    });
+    const commands = createCommandService(fixture.runtime);
+    const request = {
+      accountMid: "u-self",
+      reservationId: "1",
+      chatMid: fixture.chat.mid,
+      text: "予約返信",
+      sendAt: Date.now(),
+      replyToMessageId: "9007199254740993",
+    };
+    if (fail) {
+      await assertRejects(
+        () => commands.sendScheduledMessage(request),
+        Error,
+        "scheduled_send_unknown",
+      );
+    } else {
+      const result = await commands.sendScheduledMessage(request);
+      assertEquals(result.message.replyTo, { messageId: "9007199254740993" });
+    }
+    await assertRejects(
+      () => commands.sendScheduledMessage(request),
+      Error,
+      "scheduled_duplicate",
+    );
+    assertEquals(calls, [{
+      to: fixture.chat.mid,
+      text: "予約返信",
+      relatedMessageId: "9007199254740993",
+      e2ee: true,
+    }]);
+  }
 });

@@ -15,6 +15,10 @@ import {
   withHistoryCursor,
 } from "./history.ts";
 import { replyMessageId, replySnapshot } from "./replies.ts";
+import {
+  createScheduledSender,
+  guardedScheduledTalk,
+} from "./scheduled_send.ts";
 
 type Json = Record<string, unknown>;
 type ChatRow = {
@@ -41,6 +45,7 @@ export type CommandRuntime = {
   getClient: () => Client | null;
   setClient: (client: Client) => void;
   isListening: () => boolean;
+  isBlocked?: (mid: string) => boolean;
   setAuthDead: (dead: boolean) => void;
   getChatCache: () => ChatCache | null;
   setChatCache: (cache: ChatCache | null) => void;
@@ -114,6 +119,41 @@ export type CommandRuntime = {
 };
 
 export function createCommandService(runtime: CommandRuntime) {
+  const scheduledSend = createScheduledSender({
+    account: () => runtime.getClient()?.base.profile?.mid ?? "",
+    ready: runtime.isListening,
+    blocked: (mid) => runtime.isBlocked?.(mid) ?? true,
+    session: runtime.getClient,
+    send: async (input, check) => {
+      const client = runtime.getClient()!;
+      const original = runtime.msgCache.get(input.chatMid)?.messages.find((
+        message,
+      ) => message.id === input.replyToMessageId);
+      const sent = await guardedScheduledTalk(client.base, input.sendAt, check)
+        .sendMessage({
+          to: input.chatMid,
+          text: input.text,
+          relatedMessageId: input.replyToMessageId,
+          e2ee: true,
+        });
+      if (!sent?.id) throw new Error("送信結果のIDがありません");
+      const message = {
+        ...runtime.sentMessagePayload(sent, input.chatMid, input.text),
+        replyTo: input.replyToMessageId
+          ? (original
+            ? replySnapshot(original)
+            : { messageId: input.replyToMessageId })
+          : null,
+      };
+      // 処理中に別アカウントになった場合は、そのキャッシュへ混入させない。
+      if (runtime.getClient() === client) {
+        runtime.msgCache.delete(input.chatMid);
+        runtime.setChatCache(null);
+        runtime.touchChatPreviewFromMessage(message);
+      }
+      return { message };
+    },
+  });
   let loginInFlight = false;
   async function withLogin(
     id: number | string | null,
@@ -903,5 +943,6 @@ export function createCommandService(runtime: CommandRuntime) {
     fetchMessages: doFetchMessages,
     fetchOlderMessages: createHistoryService(runtime),
     sendMessage: doSend,
+    sendScheduledMessage: scheduledSend,
   };
 }

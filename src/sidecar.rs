@@ -302,6 +302,20 @@ impl Sidecar {
         self.request("send_message", Some(params))
     }
 
+    pub fn send_scheduled(&self, entry: &crate::scheduled::Entry) -> Result<u64> {
+        self.request(
+            "send_scheduled_message",
+            Some(json!({
+                "accountMid": entry.account,
+                "reservationId": entry.id.to_string(),
+                "chatMid": entry.chat_mid,
+                "text": entry.text,
+                "sendAt": entry.send_at,
+                "replyToMessageId": entry.quote.as_ref().map(|quote| &quote.message_id),
+            })),
+        )
+    }
+
     pub fn send_audio(
         &self,
         chat_mid: &str,
