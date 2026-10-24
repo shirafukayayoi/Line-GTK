@@ -27,6 +27,7 @@ pub(super) type MessageListFingerprint = (String, Vec<MessageInfo>);
 
 #[derive(Clone)]
 pub(super) struct AppState {
+    pub writing: Rc<RefCell<super::writing_ui::State>>,
     pub scheduled: Rc<RefCell<super::scheduled_replies::State>>,
     pub auto_login: Rc<RefCell<super::auto_login::State>>,
     pub app: Application,
@@ -234,6 +235,7 @@ pub(super) enum Pending {
         chat_mid: String,
         placeholder_id: String,
         reply_draft: Option<super::replies::ReplyDraft>,
+        saved_text: Option<(String, u64)>,
     },
     ListStickers,
     DownloadMedia {

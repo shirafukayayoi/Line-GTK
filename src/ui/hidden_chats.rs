@@ -54,6 +54,9 @@ fn hide(state: &AppState, mid: &str) {
     }
     // 別のトークを自動で開くと既読が付くため、選択のない画面へ戻す。
     if state.current_chat.borrow().as_deref() == Some(mid) {
+        if !writing_ui::leave_chat(state) {
+            return;
+        }
         finish_voice_record(state, false);
         *state.current_chat.borrow_mut() = None;
         clear_messages(state);

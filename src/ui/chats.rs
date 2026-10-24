@@ -53,6 +53,7 @@ pub(super) fn apply_chats(state: &AppState, mut chats: Vec<ChatInfo>, cached: bo
     chat_filter::refresh(state);
     refresh_tray_menu(state);
     hidden_chats::refresh(state);
+    writing_ui::refresh(state);
 }
 
 pub(super) fn select_sidebar_chat(state: &AppState, mid: Option<&str>) {
@@ -121,6 +122,7 @@ pub(super) fn upsert_chat_row(state: &AppState, chat: ChatInfo) {
             }
         }
         chat_filter::refresh(state);
+        writing_ui::refresh(state);
         return;
     }
 
@@ -145,6 +147,7 @@ pub(super) fn upsert_chat_row(state: &AppState, chat: ChatInfo) {
     ));
     chat_filter::refresh(state);
     refresh_tray_menu(state);
+    writing_ui::refresh(state);
 }
 
 pub(super) fn promote_chat_to_top(state: &AppState, mid: &str) {

@@ -116,6 +116,7 @@ pub(super) fn wire(state: &AppState) {
 pub(super) fn cancel(state: &AppState) {
     state.reply_target.borrow_mut().take();
     state.reply_preview.set_reveal_child(false);
+    writing_ui::changed(state);
 }
 
 pub(super) fn refresh(state: &AppState) {
@@ -131,6 +132,8 @@ pub(super) fn refresh(state: &AppState) {
         state.reply_text.set_text(&quote_text(&target.quote));
     }
     state.reply_preview.set_reveal_child(target.is_some());
+    drop(target);
+    writing_ui::changed(state);
 }
 
 pub(super) fn restore_failed(state: &AppState, draft: &ReplyDraft) {

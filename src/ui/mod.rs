@@ -35,6 +35,7 @@ mod unread_sync;
 mod unsend;
 mod video;
 mod virtual_list;
+mod writing_ui;
 
 use crate::config::{AppConfig, apply_animations, apply_font, apply_theme};
 use crate::protocol::{ChatInfo, FlexAction, MessageInfo, Profile, ProtocolEvent};
@@ -150,6 +151,7 @@ fn build_ui(app: &Application, repo_root: PathBuf, data_dir: PathBuf) -> Result<
     let (tray_tx, tray_rx) = async_channel::unbounded::<crate::tray::TrayAction>();
 
     let state = AppState {
+        writing: Rc::new(RefCell::new(writing_ui::State::load(&data_dir))),
         scheduled: Rc::new(RefCell::new(scheduled_replies::State::load(&data_dir))),
         auto_login: Rc::new(RefCell::new(auto_login::State::default())),
         contact_blocks: Rc::new(RefCell::new(contact_blocks::BlockState::default())),
@@ -302,6 +304,7 @@ fn build_ui(app: &Application, repo_root: PathBuf, data_dir: PathBuf) -> Result<
     contact_blocks::wire(&state);
     pinned_chats::wire(&state);
     scheduled_replies::wire(&state);
+    writing_ui::wire(&state);
     apply_ui_language(&state);
     apply_ui_motion(&state);
     wire_sidebar(&state);
@@ -1030,6 +1033,11 @@ fn send_current(state: &AppState) {
         .as_ref()
         .filter(|target| target.chat_mid == chat_mid)
         .map(|target| target.quote.clone());
+    let Some((account, saved_id)) =
+        writing_ui::prepare_send(state, &chat_mid, &text, reply_to.clone())
+    else {
+        return;
+    };
     match state.sidecar.send_reply(
         &chat_mid,
         &text,
@@ -1061,15 +1069,22 @@ fn send_current(state: &AppState) {
                     reply_to,
                 },
             );
+            if let Some(Pending::Send { saved_text, .. }) = state.pending.borrow_mut().get_mut(&id)
+            {
+                *saved_text = Some((account, saved_id));
+            }
             replies::cancel(state);
             state.composer.set_text("");
             dismiss_new_marker(state);
             pin_messages_to_latest(state);
         }
-        Err(e) => toast(
-            state,
-            &crate::i18n::tf("send_failed", &[("error", &e.to_string())]),
-        ),
+        Err(e) => {
+            writing_ui::complete(state, &account, saved_id, false, None, None);
+            toast(
+                state,
+                &crate::i18n::tf("send_failed", &[("error", &e.to_string())]),
+            );
+        }
     }
 }
 
@@ -1116,6 +1131,7 @@ fn begin_optimistic_send(state: &AppState, req_id: u64, chat_mid: &str, mut msg:
                 text: msg.text.clone(),
                 quote,
             }),
+            saved_text: None,
         },
     );
 }
@@ -1124,6 +1140,7 @@ fn apply_ui_language(state: &AppState) {
     crate::i18n::set_lang(&state.repo_root, &state.config.borrow().language);
     read_pause::apply_language(state);
     scheduled_replies::apply_language(state);
+    writing_ui::refresh(state);
     // 再ログインせず、プレビュー生成側にも選択した言語を反映する。
     if let Err(error) = state.sidecar.request(
         "set_language",
@@ -1432,6 +1449,8 @@ fn wire_actions(state: &AppState) {
                 let s2 = s.clone();
                 Rc::new(move || {
                     auto_login::manual_logout(&s2);
+                    writing_ui::interrupt(&s2);
+                    writing_ui::leave_chat(&s2);
                     albums::close(&s2);
                     hidden_chats::close(&s2);
                     contact_blocks::reset(&s2);
@@ -1473,6 +1492,8 @@ fn wire_actions(state: &AppState) {
             on_experimental_calls: {
                 let s2 = s.clone();
                 Rc::new(move |_on: bool| {
+                    writing_ui::interrupt(&s2);
+                    writing_ui::leave_chat(&s2);
                     albums::close(&s2);
                     hidden_chats::close(&s2);
                     contact_blocks::reset(&s2);
@@ -1691,6 +1712,9 @@ fn open_chat(state: &AppState, chat: &ChatInfo) {
     }
 
     // Also select when user opens a chat manually.
+    if !writing_ui::leave_chat(state) {
+        return;
+    }
     select_sidebar_chat(state, Some(chat.mid.as_str()));
     state.current_chat.borrow_mut().replace(chat.mid.clone());
     read_pause::refresh_once_button(state);
@@ -1723,6 +1747,7 @@ fn open_chat(state: &AppState, chat: &ChatInfo) {
     state.media_queue.borrow_mut().clear();
     set_msg_state(state, "loading", None);
     clear_messages(state);
+    writing_ui::enter_chat(state, &chat.mid);
     *state.msg_list_fp.borrow_mut() = None;
     let generation = state.history_request_generation.borrow().wrapping_add(1);
     *state.history_request_generation.borrow_mut() = generation;
@@ -1800,6 +1825,8 @@ fn restart_qr_login(state: &AppState) {
 }
 
 fn restart_login(state: &AppState) {
+    writing_ui::interrupt(state);
+    writing_ui::leave_chat(state);
     scheduled_replies::interrupt(state);
     auto_login::manual_restart(state);
     contact_blocks::reset(state);

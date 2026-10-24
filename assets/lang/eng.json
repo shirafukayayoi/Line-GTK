@@ -548,5 +548,18 @@
   "schedule_cancelled": "Cancelled",
   "schedule_edit": "Edit",
   "schedule_cancel": "Cancel schedule",
-  "schedule_remove": "Remove from list"
+  "schedule_remove": "Remove from list",
+  "writing_save_error": "Cannot save drafts or outgoing text. Copy your text and restart the app. Sending and chat switching have stopped to prevent text loss.",
+  "writing_recover": "Recover outgoing text",
+  "writing_sending": "Sending",
+  "writing_failed": "Could not send",
+  "writing_unknown": "Delivery unknown (no automatic retry)",
+  "writing_pending_count": "Unsent or unknown: {n}",
+  "writing_draft_preview": "Draft: {text}",
+  "writing_copy": "Copy text",
+  "writing_restore": "Edit in composer",
+  "writing_remove": "Remove record",
+  "writing_missing_chat": "Open the recipient conversation first. Unhide it if needed.",
+  "writing_conflict": "This conversation has another draft, which will not be overwritten. You can copy the saved text.",
+  "writing_recover_help": "Text is saved on this PC. For unknown delivery, check in LINE whether it was sent before editing. Nothing is resent automatically."
 }

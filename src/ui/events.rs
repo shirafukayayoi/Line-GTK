@@ -84,6 +84,7 @@ pub(super) fn handle_event(state: &AppState, ev: ProtocolEvent) {
             on_logged_in(state, &result);
         }
         ProtocolEvent::SessionFailed { error } => {
+            writing_ui::interrupt(state);
             scheduled_replies::interrupt(state);
             *state.session_ready.borrow_mut() = false;
             hide_upload_progress(state);
@@ -388,6 +389,7 @@ pub(super) fn handle_event(state: &AppState, ev: ProtocolEvent) {
                 }
             }
             chat_filter::refresh(state);
+            writing_ui::refresh(state);
         }
         ProtocolEvent::ChatMute { mid, muted } => {
             if let Some(chat) = state.chats.borrow_mut().iter_mut().find(|c| c.mid == mid) {
@@ -711,12 +713,26 @@ pub(super) fn handle_event(state: &AppState, ev: ProtocolEvent) {
                 if let Some(Pending::Send {
                     placeholder_id,
                     reply_draft,
+                    saved_text,
                     ..
                 }) = pending.as_ref()
                 {
                     hide_upload_progress(state);
-                    remove_pending_placeholder(state, placeholder_id);
-                    if let Some(draft) = reply_draft {
+                    if let Some((account, id)) = saved_text {
+                        writing_ui::complete(
+                            state,
+                            account,
+                            *id,
+                            false,
+                            error.as_deref(),
+                            Some(placeholder_id),
+                        );
+                    } else {
+                        remove_pending_placeholder(state, placeholder_id);
+                    }
+                    if saved_text.is_none()
+                        && let Some(draft) = reply_draft
+                    {
                         replies::restore_failed(state, draft);
                     }
                 }
@@ -770,15 +786,34 @@ pub(super) fn handle_event(state: &AppState, ev: ProtocolEvent) {
                 Some(Pending::Send {
                     placeholder_id,
                     chat_mid,
+                    saved_text,
                     ..
                 }) => {
+                    let message = result
+                        .get("message")
+                        .cloned()
+                        .and_then(|value| serde_json::from_value::<MessageInfo>(value).ok())
+                        .filter(|message| !message.id.is_empty());
+                    if let Some((account, id)) = saved_text {
+                        writing_ui::complete(
+                            state,
+                            &account,
+                            id,
+                            message.is_some(),
+                            None,
+                            Some(&placeholder_id),
+                        );
+                        if message.is_none()
+                            || state.self_mid.borrow().as_deref() != Some(account.as_str())
+                        {
+                            return;
+                        }
+                    }
                     remove_pending_placeholder(state, &placeholder_id);
                     if state.current_chat.borrow().as_deref() != Some(chat_mid.as_str()) {
                         return;
                     }
-                    if let Ok(msg) = serde_json::from_value::<MessageInfo>(
-                        result.get("message").cloned().unwrap_or_default(),
-                    ) {
+                    if let Some(msg) = message {
                         if state.msg_stack.visible_child_name().as_deref() != Some("list") {
                             set_msg_state(state, "list", None);
                         }
@@ -824,6 +859,7 @@ pub(super) fn handle_event(state: &AppState, ev: ProtocolEvent) {
         }
         ProtocolEvent::Error(e) => toast(state, &e),
         ProtocolEvent::Exited(code) => {
+            writing_ui::interrupt(state);
             scheduled_replies::interrupt(state);
             resume_sync::cancel(state);
             albums::close(state);
@@ -889,6 +925,7 @@ pub(super) fn on_logged_in(state: &AppState, result: &serde_json::Value) {
     hidden_chats::close(state);
     match serde_json::from_value::<Profile>(result.clone()) {
         Ok(profile) => {
+            writing_ui::session(state, &profile.mid);
             auto_login::logged_in(state);
             if state.self_mid.borrow().as_deref() != Some(profile.mid.as_str()) {
                 state.peer_reads.borrow_mut().clear();
@@ -935,6 +972,7 @@ pub(super) fn on_logged_in(state: &AppState, result: &serde_json::Value) {
             // If chats were already painted from a warm cache event, open last chat now.
             maybe_restore_last_chat(state);
             sync_discord_rpc(state);
+            writing_ui::refresh(state);
         }
         Err(e) => toast(
             state,

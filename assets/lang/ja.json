@@ -548,5 +548,18 @@
   "schedule_cancelled": "予約を取り消しました",
   "schedule_edit": "変更",
   "schedule_cancel": "予約を取り消す",
-  "schedule_remove": "一覧から削除"
+  "schedule_remove": "一覧から削除",
+  "writing_save_error": "下書き・送信本文を保存できません。本文をコピーしてからアプリを再起動してください。本文を失わないため、送信とトーク切り替えを停止しています。",
+  "writing_recover": "送信できなかった本文",
+  "writing_sending": "送信中",
+  "writing_failed": "送信できませんでした",
+  "writing_unknown": "送信結果不明（自動再送しません）",
+  "writing_pending_count": "未送信・結果不明 {n}件",
+  "writing_draft_preview": "下書き：{text}",
+  "writing_copy": "本文をコピー",
+  "writing_restore": "入力欄に戻して編集",
+  "writing_remove": "記録を削除",
+  "writing_missing_chat": "送信先のトークを表示してから復元してください。非表示の場合は先に再表示してください。",
+  "writing_conflict": "送信先に別の下書きがあるため上書きしません。本文はコピーできます。",
+  "writing_recover_help": "本文はこのPCに保存されています。結果不明の場合はLINEで送信済みでないことを確認してから編集してください。ここから自動で再送することはありません。"
 }
