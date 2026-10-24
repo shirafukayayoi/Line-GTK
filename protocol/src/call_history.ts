@@ -1,12 +1,15 @@
 type Json = Record<string, unknown>;
 
 export type CallHistory = {
+  group?: boolean;
   video: boolean;
   status: "completed" | "unanswered" | "unknown";
   durationMs: number | null;
 };
 
 export type CallHistoryLabels = {
+  groupCall: string;
+  groupVideo: string;
   callIncoming: string;
   callOutgoing: string;
   callMissed: string;
@@ -44,7 +47,11 @@ export function callHistoryOf(message: Json): CallHistory | null {
   // 数値の結果コードや通話時間ゼロだけでは、不在着信と断定しない。
   const unanswered = saved.status === "unanswered" ||
     ["MISSED", "CANCELED", "CANCELLED", "NO_ANSWER"].includes(result);
+  const group = saved.group === true ||
+    [message.to, message.from, message.chatMid]
+      .some((mid) => typeof mid === "string" && /^[cr]/.test(mid));
   return {
+    ...(group ? { group: true } : {}),
     video: metadata.TYPE === "V" || metadata.GC_MEDIA_TYPE === "VIDEO" ||
       saved.video === true,
     status: durationMs != null && durationMs > 0
@@ -74,7 +81,9 @@ export function callHistoryPreview(
   const history = callHistoryOf(message);
   if (!history) return null;
   const missed = history.status === "unanswered";
-  const title = history.video
+  const title = history.group
+    ? history.video ? labels.groupVideo : labels.groupCall
+    : history.video
     ? message.mine
       ? missed ? labels.videoUnanswered : labels.videoOutgoing
       : missed
@@ -94,4 +103,40 @@ export function callHistoryPreview(
 export function isLegacyCallPreview(preview: string): boolean {
   const body = preview.replace(/^(?:You|They|คุณ|เขา|自分|相手): /, "");
   return legacyHistory.test(body.trim());
+}
+
+// グループに残った旧版の個別通話プレビューは、本文を再取得して作り直す。
+export function isOutdatedGroupCallPreview(
+  mid: string,
+  preview: string,
+): boolean {
+  if (!/^[cr]/.test(mid)) return false;
+  const body = preview.replace(/^(?:You|They|คุณ|เขา|自分|相手): /, "");
+  const title = body.split(" · ")[0];
+  return [
+    "着信がありました",
+    "発信しました",
+    "不在着信",
+    "応答なし",
+    "ビデオ通話の着信",
+    "ビデオ通話の発信",
+    "ビデオ通話の不在着信",
+    "ビデオ通話の応答なし",
+    "Incoming call",
+    "Outgoing call",
+    "Missed call",
+    "Unanswered call",
+    "Incoming video call",
+    "Outgoing video call",
+    "Missed video call",
+    "Unanswered video call",
+    "มีสายเรียกเข้า",
+    "โทรออก",
+    "สายที่ไม่ได้รับ",
+    "ไม่มีผู้รับสาย",
+    "สายวิดีโอเรียกเข้า",
+    "โทรวิดีโอออก",
+    "สายวิดีโอที่ไม่ได้รับ",
+    "ไม่มีผู้รับสายวิดีโอ",
+  ].includes(title);
 }

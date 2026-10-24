@@ -52,6 +52,8 @@ export function createMessageView(runtime: MessageViewRuntime) {
       return {
         you: "自分",
         unsent: "メッセージの送信が取り消されました",
+        groupCall: "グループ通話",
+        groupVideo: "グループビデオ通話",
         callIncoming: "着信がありました",
         callOutgoing: "発信しました",
         callMissed: "不在着信",
@@ -77,6 +79,8 @@ export function createMessageView(runtime: MessageViewRuntime) {
       ? {
         you: "คุณ",
         unsent: "ยกเลิกข้อความแล้ว",
+        groupCall: "การโทรกลุ่ม",
+        groupVideo: "วิดีโอคอลกลุ่ม",
         callIncoming: "มีสายเรียกเข้า",
         callOutgoing: "โทรออก",
         callMissed: "สายที่ไม่ได้รับ",
@@ -99,6 +103,8 @@ export function createMessageView(runtime: MessageViewRuntime) {
       : {
         you: "You",
         unsent: "Message unsent",
+        groupCall: "Group call",
+        groupVideo: "Group video call",
         callIncoming: "Incoming call",
         callOutgoing: "Outgoing call",
         callMissed: "Missed call",
@@ -122,6 +128,7 @@ export function createMessageView(runtime: MessageViewRuntime) {
 
   function previewLine(msg: Json): string {
     const L = previewLang();
+    if (callHistoryOf(msg)?.group) return previewBody(msg);
     const who = msg.mine ? L.you : L.they;
     return `${who}: ${previewBody(msg)}`;
   }

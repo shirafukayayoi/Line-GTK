@@ -101,6 +101,8 @@ pub struct ReaderRanges {
 #[derive(Debug, Clone, Deserialize, PartialEq)]
 pub struct CallHistory {
     #[serde(default)]
+    pub group: bool,
+    #[serde(default)]
     pub video: bool,
     #[serde(default)]
     pub status: String,

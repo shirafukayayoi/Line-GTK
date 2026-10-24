@@ -191,15 +191,19 @@ pub(super) fn handle_event(state: &AppState, ev: ProtocolEvent) {
             };
             let already_read = state.unread_sync.borrow().already_read(&peer, &msg.id);
             state.unread_sync.borrow_mut().observe(&peer, &msg.id);
-            let mut preview = format!(
-                "{}: {}",
-                if msg.mine {
-                    crate::i18n::t("you")
-                } else {
-                    crate::i18n::t("they")
-                },
+            let mut preview = if call_history::is_group_call(&msg) {
                 preview_body_ui(&msg)
-            );
+            } else {
+                format!(
+                    "{}: {}",
+                    if msg.mine {
+                        crate::i18n::t("you")
+                    } else {
+                        crate::i18n::t("they")
+                    },
+                    preview_body_ui(&msg)
+                )
+            };
             preview = localize_preview(&preview);
 
             // New friend / first message: create the sidebar row immediately.

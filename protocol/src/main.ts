@@ -952,6 +952,8 @@ async function summarizeTalkMessage(
   }
   let text = tm.text || meta.ALT_TEXT || meta.STKTXT || "";
   const callHistory = callHistoryOf({
+    to: raw.to,
+    from: raw.from,
     contentType,
     text,
     contentMetadata: meta,
@@ -1185,6 +1187,8 @@ async function summarizeRawMessage(
     const contentType = normType(r.contentType);
     let text = String(r.text ?? meta.ALT_TEXT ?? meta.STKTXT ?? "");
     const callHistory = callHistoryOf({
+      to: r.to,
+      from: r.from,
       contentType,
       text,
       contentMetadata: meta,

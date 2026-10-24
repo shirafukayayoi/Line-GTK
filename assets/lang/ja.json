@@ -311,6 +311,8 @@
   "media_send_failed": "ファイルを送信できませんでした：{error}",
   "still_restoring": "ログイン状態を復元しています…",
   "voice_call": "音声通話",
+  "call_history_group": "グループ通話",
+  "call_history_group_video": "グループビデオ通話",
   "call_history_incoming": "着信がありました",
   "call_history_outgoing": "発信しました",
   "call_history_missed": "不在着信",

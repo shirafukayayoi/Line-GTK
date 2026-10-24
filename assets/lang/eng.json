@@ -311,6 +311,8 @@
   "media_send_failed": "Could not send file: {error}",
   "still_restoring": "Still restoring session…",
   "voice_call": "Voice call",
+  "call_history_group": "Group call",
+  "call_history_group_video": "Group video call",
   "call_history_incoming": "Incoming call",
   "call_history_outgoing": "Outgoing call",
   "call_history_missed": "Missed call",

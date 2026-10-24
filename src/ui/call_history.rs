@@ -24,6 +24,7 @@ fn card_data(message: &MessageInfo) -> Option<HistoryCard> {
         return None;
     }
     let fallback = CallHistory {
+        group: false,
         video: false,
         status: "unknown".into(),
         duration_ms: message
@@ -42,20 +43,31 @@ fn card_data(message: &MessageInfo) -> Option<HistoryCard> {
         }
     });
     // 時間ゼロや未知の数値コードから、応答の有無を推測しない。
-    let unanswered = duration.is_none() && history.status == "unanswered";
-    let title_key = match (history.video, message.mine, unanswered) {
-        (false, false, false) => "call_history_incoming",
-        (false, true, false) => "call_history_outgoing",
-        (false, false, true) => "call_history_missed",
-        (false, true, true) => "call_history_unanswered",
-        (true, false, false) => "call_history_video_incoming",
-        (true, true, false) => "call_history_video_outgoing",
-        (true, false, true) => "call_history_video_missed",
-        (true, true, true) => "call_history_video_unanswered",
+    let group = is_group_call(message);
+    let unanswered = !group && duration.is_none() && history.status == "unanswered";
+    let title_key = if group {
+        if history.video {
+            "call_history_group_video"
+        } else {
+            "call_history_group"
+        }
+    } else {
+        match (history.video, message.mine, unanswered) {
+            (false, false, false) => "call_history_incoming",
+            (false, true, false) => "call_history_outgoing",
+            (false, false, true) => "call_history_missed",
+            (false, true, true) => "call_history_unanswered",
+            (true, false, false) => "call_history_video_incoming",
+            (true, true, false) => "call_history_video_outgoing",
+            (true, false, true) => "call_history_video_missed",
+            (true, true, true) => "call_history_video_unanswered",
+        }
     };
     let missed = unanswered && !message.mine;
     let icon_name = if history.video {
         "camera-video-symbolic"
+    } else if group {
+        "system-users-symbolic"
     } else if missed {
         "call-missed-symbolic"
     } else if message.mine {
@@ -69,6 +81,16 @@ fn card_data(message: &MessageInfo) -> Option<HistoryCard> {
         duration,
         missed,
     })
+}
+
+pub(super) fn is_group_call(message: &MessageInfo) -> bool {
+    message.content_type.eq_ignore_ascii_case("CALL")
+        && (message
+            .call_history
+            .as_ref()
+            .is_some_and(|history| history.group)
+            || message.to.starts_with(['c', 'r'])
+            || message.from.starts_with(['c', 'r']))
 }
 
 pub(super) fn history_preview(message: &MessageInfo) -> Option<String> {
@@ -181,6 +203,44 @@ mod tests {
             card_data(&completed).unwrap().duration.as_deref(),
             Some("1:02:03")
         );
+    }
+
+    #[test]
+    fn group_calls_do_not_imply_incoming_outgoing_or_missed() {
+        for mid in ["c-group", "r-room"] {
+            for mine in [false, true] {
+                for status in ["completed", "unanswered", "unknown"] {
+                    let message = message(serde_json::json!({
+                        "to": mid, "mine": mine, "contentType": "CALL",
+                        "callHistory": {"status":status,"durationMs":0}
+                    }));
+                    let card = card_data(&message).unwrap();
+                    assert_eq!(card.title_key, "call_history_group");
+                    assert_eq!(card.icon_name, "system-users-symbolic");
+                    assert!(!card.missed);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn cached_group_records_keep_duration_and_video_without_destination() {
+        let old = message(serde_json::json!({
+            "to":"c-group", "contentType":"CALL", "text":"Call History : 10147000 millisecs, Result: 16"
+        }));
+        assert_eq!(
+            card_data(&old).unwrap().duration.as_deref(),
+            Some("2:49:07")
+        );
+        let saved = message(serde_json::json!({
+            "contentType":"CALL", "callHistory":{"group":true,"video":true,"status":"unanswered"}
+        }));
+        let card = card_data(&saved).unwrap();
+        assert_eq!(card.title_key, "call_history_group_video");
+        assert!(!card.missed);
+        assert!(!is_group_call(&message(
+            serde_json::json!({"to":"c-group", "contentType":"NONE"})
+        )));
     }
 
     #[test]

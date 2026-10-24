@@ -1,4 +1,7 @@
-import { isLegacyCallPreview } from "./call_history.ts";
+import {
+  isLegacyCallPreview,
+  isOutdatedGroupCallPreview,
+} from "./call_history.ts";
 
 type Json = Record<string, unknown>;
 
@@ -35,7 +38,8 @@ function newestMessage(messages: Json[]): Json | undefined {
 // 言語切り替え前のキャッシュにある案内文も再取得の対象にする。
 export function needsChatPreview(chat: PreviewChat): boolean {
   return chat.lastActivity > 0 &&
-    (!chat.preview || isLegacyCallPreview(chat.preview) || [
+    (!chat.preview || isLegacyCallPreview(chat.preview) ||
+      isOutdatedGroupCallPreview(chat.mid, chat.preview) || [
       "Tap to open",
       "แตะเพื่อเปิด",
       "タップして開く",
@@ -54,7 +58,9 @@ export function createChatPreviews(runtime: PreviewRuntime) {
     // 古い履歴やキャッシュで、受信済みの新しいメッセージを上書きしない。
     if (newest && Number(newest.createdTime ?? 0) < chat.lastActivity) return;
     if (!newest && chat.preview && !needsChatPreview(chat)) return;
-    const preview = newest ? runtime.previewLine(newest) : runtime.fallback();
+    const preview = newest
+      ? runtime.previewLine({ ...newest, chatMid })
+      : runtime.fallback();
     if (chat.preview === preview) return;
     chat.preview = preview;
     chat.lastActivity = Math.max(

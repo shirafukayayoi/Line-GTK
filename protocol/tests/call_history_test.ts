@@ -3,6 +3,7 @@ import {
   callHistoryOf,
   formatCallDuration,
   isLegacyCallPreview,
+  isOutdatedGroupCallPreview,
 } from "../src/call_history.ts";
 import { createMessageView } from "../src/message_view.ts";
 import { needsChatPreview } from "../src/chat_previews.ts";
@@ -132,4 +133,90 @@ Deno.test("一覧に保存された旧内部表現は再取得して読みやす
     true,
   );
   assertEquals(isLegacyCallPreview("Call Historyについて相談"), false);
+});
+
+Deno.test("グループ・複数人トークは送受信方向や未応答にかかわらずグループ通話と表示する", async () => {
+  const previous = Deno.env.get("LINE_GTK_LANG");
+  const view = messageView();
+  try {
+    Deno.env.set("LINE_GTK_LANG", "ja");
+    for (const to of ["c-group", "r-room"]) {
+      for (const mine of [true, false]) {
+        for (const status of ["completed", "unanswered", "unknown"]) {
+          const message = {
+            to,
+            mine,
+            contentType: "CALL",
+            callHistory: { status, durationMs: 0 },
+          };
+          assertEquals(view.previewLine(message), "グループ通話");
+          const [ui] = await view.forUiMessages([message]);
+          assertEquals((ui.callHistory as { group: boolean }).group, true);
+        }
+      }
+    }
+    assertEquals(
+      view.previewLine({
+        to: "c-group",
+        contentType: "CALL",
+        durationMs: 10147000,
+      }),
+      "グループ通話 · 2:49:07",
+    );
+    const video = {
+      contentType: "CALL",
+      callHistory: {
+        group: true,
+        video: true,
+        status: "unanswered",
+        durationMs: 0,
+      },
+    };
+    assertEquals(view.previewLine(video), "グループビデオ通話");
+    Deno.env.set("LINE_GTK_LANG", "en");
+    assertEquals(view.previewLine(video), "Group video call");
+    Deno.env.set("LINE_GTK_LANG", "th");
+    assertEquals(view.previewLine(video), "วิดีโอคอลกลุ่ม");
+  } finally {
+    if (previous === undefined) Deno.env.delete("LINE_GTK_LANG");
+    else Deno.env.set("LINE_GTK_LANG", previous);
+  }
+});
+
+Deno.test("保存済みの個別通話風プレビューはグループだけ再取得し、通常本文を変換しない", () => {
+  for (
+    const title of [
+      "着信がありました",
+      "発信しました",
+      "不在着信",
+      "ビデオ通話の不在着信",
+      "Incoming call",
+      "Unanswered video call",
+      "มีสายเรียกเข้า",
+      "สายวิดีโอที่ไม่ได้รับ",
+    ]
+  ) {
+    const preview = `相手: ${title} · 2:49:07`;
+    assertEquals(isOutdatedGroupCallPreview("c-group", preview), true);
+    assertEquals(
+      needsChatPreview({ mid: "c-group", preview, lastActivity: 20 }),
+      true,
+    );
+    assertEquals(
+      needsChatPreview({ mid: "u-peer", preview, lastActivity: 20 }),
+      false,
+    );
+  }
+  assertEquals(
+    isOutdatedGroupCallPreview("c-group", "グループ通話 · 2:49:07"),
+    false,
+  );
+  assertEquals(
+    callHistoryOf({
+      contentType: "NONE",
+      to: "c-group",
+      text: "着信がありました",
+    }),
+    null,
+  );
 });

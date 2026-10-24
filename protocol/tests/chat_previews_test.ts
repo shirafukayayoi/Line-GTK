@@ -180,3 +180,29 @@ Deno.test("一覧を重複取得しても同じトークの背景通信を重複
   ]);
   assertEquals(fetched, 1);
 });
+
+Deno.test("プレビューの生成には対象トークを渡し、宛先のないキャッシュでもグループを判別できる", async () => {
+  const chats = [{
+    mid: "c-group",
+    preview: "相手: 着信がありました",
+    lastActivity: 20,
+  }];
+  let context: unknown;
+  const previews = createChatPreviews({
+    getChats: () => chats,
+    previewLine: (message) => {
+      context = message.chatMid;
+      return "グループ通話";
+    },
+    fallback: () => "",
+    emit: () => {},
+    save: () => Promise.resolve(),
+  });
+  await previews.updateFromMessages("c-group", [{
+    id: "1",
+    createdTime: 20,
+    contentType: "CALL",
+  }]);
+  assertEquals(context, "c-group");
+  assertEquals(chats[0].preview, "グループ通話");
+});

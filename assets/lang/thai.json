@@ -311,6 +311,8 @@
   "media_send_failed": "ส่งไฟล์ไม่สำเร็จ: {error}",
   "still_restoring": "กำลังกู้เซสชัน…",
   "voice_call": "โทรเสียง",
+  "call_history_group": "การโทรกลุ่ม",
+  "call_history_group_video": "วิดีโอคอลกลุ่ม",
   "call_history_incoming": "มีสายเรียกเข้า",
   "call_history_outgoing": "โทรออก",
   "call_history_missed": "สายที่ไม่ได้รับ",
