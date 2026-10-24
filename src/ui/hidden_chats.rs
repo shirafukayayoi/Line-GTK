@@ -43,6 +43,9 @@ fn hide(state: &AppState, mid: &str) {
     else {
         return;
     };
+    if state.current_chat.borrow().as_deref() == Some(mid) && !writing_ui::flush(state) {
+        return;
+    }
     let result =
         state
             .config
