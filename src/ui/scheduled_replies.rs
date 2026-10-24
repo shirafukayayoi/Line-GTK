@@ -363,6 +363,9 @@ fn open_new(state: &AppState) {
         report_storage_error(state);
         return;
     }
+    if !writing_ui::flush(state) {
+        return;
+    }
     let chat_name = state
         .chats
         .borrow()
