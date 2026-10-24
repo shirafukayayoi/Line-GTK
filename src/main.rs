@@ -5,6 +5,7 @@ mod discord_rpc;
 mod i18n;
 mod protocol;
 mod read_receipts;
+mod scheduled;
 mod sidecar;
 mod sticker_anim;
 mod tray;

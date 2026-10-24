@@ -110,7 +110,7 @@ pub struct CallHistory {
     pub duration_ms: Option<i64>,
 }
 
-#[derive(Debug, Clone, Deserialize, PartialEq)]
+#[derive(Debug, Clone, serde::Serialize, Deserialize, PartialEq)]
 pub struct ReplyInfo {
     #[serde(rename = "messageId")]
     pub message_id: String,
