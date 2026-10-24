@@ -561,5 +561,11 @@
   "writing_remove": "Remove record",
   "writing_missing_chat": "Open the recipient conversation first. Unhide it if needed.",
   "writing_conflict": "This conversation has another draft, which will not be overwritten. You can copy the saved text.",
-  "writing_recover_help": "Text is saved on this PC. For unknown delivery, check in LINE whether it was sent before editing. Nothing is resent automatically."
+  "writing_recover_help": "Text is saved on this PC. For unknown delivery, check in LINE whether it was sent before editing. Nothing is resent automatically.",
+  "message_search_placeholder": "Search message text",
+  "message_search_scope": "Searches text loaded in this conversation. Load earlier messages to expand the search.",
+  "message_search_previous": "Previous match (Shift+Enter)",
+  "message_search_next": "Next match (Enter)",
+  "message_search_close": "Close search (Esc)",
+  "message_search_open": "Search conversation (Ctrl+F)"
 }

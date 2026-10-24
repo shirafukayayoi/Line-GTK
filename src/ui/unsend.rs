@@ -103,6 +103,7 @@ pub(super) fn apply(state: &AppState, account: &str, chat_mid: &str, id: &str) {
         .map(|m| m.id.clone());
     *state.last_incoming_id.borrow_mut() = incoming;
     replies::redact(state, id);
+    message_search::changed(state);
     *state.msg_list_fp.borrow_mut() = None;
     state.message_list.queue_allocate();
 }

@@ -19,6 +19,7 @@ mod hidden_chats;
 mod history;
 mod login;
 mod media;
+mod message_search;
 mod message_senders;
 mod messages;
 mod notifications;
@@ -151,6 +152,7 @@ fn build_ui(app: &Application, repo_root: PathBuf, data_dir: PathBuf) -> Result<
     let (tray_tx, tray_rx) = async_channel::unbounded::<crate::tray::TrayAction>();
 
     let state = AppState {
+        message_search: Rc::new(RefCell::new(message_search::State::default())),
         writing: Rc::new(RefCell::new(writing_ui::State::load(&data_dir))),
         scheduled: Rc::new(RefCell::new(scheduled_replies::State::load(&data_dir))),
         auto_login: Rc::new(RefCell::new(auto_login::State::default())),
@@ -305,6 +307,7 @@ fn build_ui(app: &Application, repo_root: PathBuf, data_dir: PathBuf) -> Result<
     pinned_chats::wire(&state);
     scheduled_replies::wire(&state);
     writing_ui::wire(&state);
+    message_search::wire(&state);
     apply_ui_language(&state);
     apply_ui_motion(&state);
     wire_sidebar(&state);
@@ -1141,6 +1144,7 @@ fn apply_ui_language(state: &AppState) {
     read_pause::apply_language(state);
     scheduled_replies::apply_language(state);
     writing_ui::refresh(state);
+    message_search::apply_language(state);
     // 再ログインせず、プレビュー生成側にも選択した言語を反映する。
     if let Err(error) = state.sidecar.request(
         "set_language",
@@ -1715,6 +1719,7 @@ fn open_chat(state: &AppState, chat: &ChatInfo) {
     if !writing_ui::leave_chat(state) {
         return;
     }
+    message_search::close(state);
     select_sidebar_chat(state, Some(chat.mid.as_str()));
     state.current_chat.borrow_mut().replace(chat.mid.clone());
     read_pause::refresh_once_button(state);

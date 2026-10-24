@@ -125,6 +125,7 @@ pub(super) fn leave_chat(state: &AppState) -> bool {
         writing.owner = None;
         writing.generation = writing.generation.wrapping_add(1);
     }
+    message_search::close(state);
     state.composer.set_text("");
     replies::cancel(state);
     state.writing.borrow_mut().holding = false;
@@ -297,7 +298,9 @@ pub(super) fn complete(
         storage_error(state);
     }
     if state.self_mid.borrow().as_deref() == Some(account) {
-        if let Some(status) = failure && let Some(placeholder) = placeholder {
+        if let Some(status) = failure
+            && let Some(placeholder) = placeholder
+        {
             mark_failed_row(state, placeholder, status);
         }
         refresh(state);

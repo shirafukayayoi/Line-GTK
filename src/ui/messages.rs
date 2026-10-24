@@ -107,6 +107,7 @@ pub(super) fn apply_messages(state: &AppState, mut messages: Vec<MessageInfo>) {
 }
 
 pub(super) fn append_message(state: &AppState, msg: &MessageInfo, live: bool) {
+    message_search::changed(state);
     let masked = unsend::masked(state, msg);
     let msg = &masked;
     if !msg.id.is_empty() && !state.seen_msg_ids.borrow_mut().insert(msg.id.clone()) {
@@ -1319,6 +1320,7 @@ pub(super) fn append_link_chips(_state: &AppState, bubble: &gtk::Box, text: &str
 }
 
 pub(super) fn clear_messages(state: &AppState) {
+    message_search::reset_rows(state);
     state.chat_event_labels.borrow_mut().clear();
     let generation = state.message_render_generation.borrow().wrapping_add(1);
     *state.message_render_generation.borrow_mut() = generation;

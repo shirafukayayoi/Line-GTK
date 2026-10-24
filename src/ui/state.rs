@@ -27,6 +27,7 @@ pub(super) type MessageListFingerprint = (String, Vec<MessageInfo>);
 
 #[derive(Clone)]
 pub(super) struct AppState {
+    pub message_search: Rc<RefCell<super::message_search::State>>,
     pub writing: Rc<RefCell<super::writing_ui::State>>,
     pub scheduled: Rc<RefCell<super::scheduled_replies::State>>,
     pub auto_login: Rc<RefCell<super::auto_login::State>>,

@@ -561,5 +561,11 @@
   "writing_remove": "記録を削除",
   "writing_missing_chat": "送信先のトークを表示してから復元してください。非表示の場合は先に再表示してください。",
   "writing_conflict": "送信先に別の下書きがあるため上書きしません。本文はコピーできます。",
-  "writing_recover_help": "本文はこのPCに保存されています。結果不明の場合はLINEで送信済みでないことを確認してから編集してください。ここから自動で再送することはありません。"
+  "writing_recover_help": "本文はこのPCに保存されています。結果不明の場合はLINEで送信済みでないことを確認してから編集してください。ここから自動で再送することはありません。",
+  "message_search_placeholder": "メッセージ本文を検索",
+  "message_search_scope": "このトークで読み込み済みの本文が対象です。以前の履歴も読み込むと検索範囲が広がります。",
+  "message_search_previous": "前の一致（Shift＋Enter）",
+  "message_search_next": "次の一致（Enter）",
+  "message_search_close": "検索を閉じる（Esc）",
+  "message_search_open": "トーク内検索（Ctrl＋F）"
 }
