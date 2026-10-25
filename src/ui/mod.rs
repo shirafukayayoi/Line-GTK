@@ -8,6 +8,7 @@ mod events;
 mod friends;
 mod login;
 mod media;
+mod message_search;
 mod messages;
 mod notifications;
 mod replies;
@@ -15,6 +16,7 @@ mod settings;
 mod shell;
 mod state;
 mod virtual_list;
+mod writing_ui;
 
 use crate::config::{AppConfig, apply_animations, apply_font, apply_theme};
 use crate::protocol::{ChatInfo, FlexAction, MessageInfo, Profile, ProtocolEvent};
@@ -126,6 +128,9 @@ fn build_ui(app: &Application, repo_root: PathBuf, data_dir: PathBuf) -> Result<
         message_list: shell.message_list,
         message_scroll: shell.message_scroll,
         composer: shell.composer,
+        writing: Rc::new(RefCell::new(writing_ui::State::load(&data_dir))),
+        message_search: Rc::new(RefCell::new(message_search::State::default())),
+        message_rows: Rc::new(RefCell::new(HashMap::new())),
         reply_preview: shell.reply_preview,
         reply_title: shell.reply_title,
         reply_text: shell.reply_text,
@@ -238,6 +243,8 @@ fn build_ui(app: &Application, repo_root: PathBuf, data_dir: PathBuf) -> Result<
     wire_sidebar(&state);
     wire_composer_narrow(&state);
     wire_actions(&state);
+    writing_ui::wire(&state);
+    message_search::wire(&state);
     replies::wire(&state);
     wire_scroll_pin(&state);
     wire_notification_actions(&state);
@@ -947,6 +954,10 @@ fn send_current(state: &AppState) {
         .as_ref()
         .filter(|target| target.chat_mid == chat_mid)
         .map(|target| target.quote.clone());
+    let Some(saved_text) = writing_ui::prepare_send(state, &chat_mid, &text, reply_to.clone())
+    else {
+        return;
+    };
     match state.sidecar.send_reply(
         &chat_mid,
         &text,
@@ -975,15 +986,24 @@ fn send_current(state: &AppState) {
                     reply_to,
                 },
             );
+            if let Some(Pending::Send {
+                saved_text: saved, ..
+            }) = state.pending.borrow_mut().get_mut(&id)
+            {
+                *saved = Some(saved_text);
+            }
             replies::cancel(state);
             state.composer.set_text("");
             dismiss_new_marker(state);
             pin_messages_to_latest(state);
         }
-        Err(e) => toast(
-            state,
-            &crate::i18n::tf("send_failed", &[("error", &e.to_string())]),
-        ),
+        Err(e) => {
+            writing_ui::complete(state, &saved_text.0, saved_text.1, false, None, None);
+            toast(
+                state,
+                &crate::i18n::tf("send_failed", &[("error", &e.to_string())]),
+            );
+        }
     }
 }
 
@@ -999,6 +1019,8 @@ fn remove_pending_placeholder(state: &AppState, placeholder_id: &str) {
         state.message_list.remove(&row);
     }
     state.reply_messages.borrow_mut().remove(placeholder_id);
+    state.message_rows.borrow_mut().remove(placeholder_id);
+    message_search::changed(state);
     state.seen_msg_ids.borrow_mut().remove(placeholder_id);
     state.media_slots.borrow_mut().remove(placeholder_id);
     state.media_msgs.borrow_mut().remove(placeholder_id);
@@ -1029,6 +1051,7 @@ fn begin_optimistic_send(state: &AppState, req_id: u64, chat_mid: &str, mut msg:
                 text: msg.text.clone(),
                 quote,
             }),
+            saved_text: None,
         },
     );
 }
@@ -1036,6 +1059,8 @@ fn begin_optimistic_send(state: &AppState, req_id: u64, chat_mid: &str, mut msg:
 fn apply_ui_language(state: &AppState) {
     crate::i18n::set_lang(&state.repo_root, &state.config.borrow().language);
     replies::refresh(state);
+    writing_ui::refresh(state);
+    message_search::apply_language(state);
     state
         .composer
         .update_property(&[gtk::accessible::Property::Label(&crate::i18n::t(
@@ -1305,6 +1330,7 @@ fn wire_actions(state: &AppState) {
                 let s2 = s.clone();
                 Rc::new(move || {
                     *s2.session_ready.borrow_mut() = false;
+                    writing_ui::interrupt(&s2);
                     s2.pending.borrow_mut().clear();
                     *s2.current_chat.borrow_mut() = None;
                     *s2.discord_session_start.borrow_mut() = None;
@@ -1341,6 +1367,7 @@ fn wire_actions(state: &AppState) {
                     refresh_call_controls(&s2);
                     // Experimental call mode binds to session/device path: force re-login.
                     *s2.session_ready.borrow_mut() = false;
+                    writing_ui::interrupt(&s2);
                     s2.pending.borrow_mut().clear();
                     *s2.current_chat.borrow_mut() = None;
                     clear_list(&s2.chat_list);
@@ -1535,9 +1562,13 @@ fn open_chat(state: &AppState, chat: &ChatInfo) {
         return;
     }
 
+    if !writing_ui::leave_chat(state) {
+        return;
+    }
     // Also select when user opens a chat manually.
     select_sidebar_chat(state, Some(chat.mid.as_str()));
     state.current_chat.borrow_mut().replace(chat.mid.clone());
+    writing_ui::enter_chat(state, &chat.mid);
     hide_upload_progress(state);
     {
         let mut cfg = state.config.borrow_mut();

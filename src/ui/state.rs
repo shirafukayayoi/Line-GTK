@@ -36,6 +36,9 @@ pub(super) struct AppState {
     pub message_list: virtual_list::VirtualMessageList,
     pub message_scroll: gtk::ScrolledWindow,
     pub composer: gtk::Entry,
+    pub writing: Rc<RefCell<super::writing_ui::State>>,
+    pub message_search: Rc<RefCell<super::message_search::State>>,
+    pub message_rows: Rc<RefCell<HashMap<String, gtk::Box>>>,
     pub reply_preview: gtk::Revealer,
     pub reply_title: gtk::Label,
     pub reply_text: gtk::Label,
@@ -163,6 +166,7 @@ pub(super) enum Pending {
         chat_mid: String,
         placeholder_id: String,
         reply_draft: Option<super::replies::ReplyDraft>,
+        saved_text: Option<(String, u64)>,
     },
     ListStickers,
     DownloadMedia {

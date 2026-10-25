@@ -53,6 +53,7 @@ pub(super) fn handle_event(state: &AppState, ev: ProtocolEvent) {
             on_logged_in(state, &result);
         }
         ProtocolEvent::SessionFailed { error } => {
+            writing_ui::interrupt(state);
             *state.session_ready.borrow_mut() = false;
             hide_upload_progress(state);
             let msg = if error.contains("relogin_android_required") {
@@ -285,6 +286,7 @@ pub(super) fn handle_event(state: &AppState, ev: ProtocolEvent) {
                     chat.last_activity = last_activity;
                 }
             }
+            writing_ui::refresh(state);
         }
         ProtocolEvent::ChatMute { mid, muted } => {
             if let Some(chat) = state.chats.borrow_mut().iter_mut().find(|c| c.mid == mid) {
@@ -519,13 +521,25 @@ pub(super) fn handle_event(state: &AppState, ev: ProtocolEvent) {
                 if let Some(Pending::Send {
                     placeholder_id,
                     reply_draft,
+                    saved_text,
                     ..
                 }) = pending.as_ref()
                 {
                     hide_upload_progress(state);
-                    remove_pending_placeholder(state, placeholder_id);
-                    if let Some(draft) = reply_draft {
-                        replies::restore_failed(state, draft);
+                    if let Some((account, saved_id)) = saved_text {
+                        writing_ui::complete(
+                            state,
+                            account,
+                            *saved_id,
+                            false,
+                            error.as_deref(),
+                            Some(placeholder_id),
+                        );
+                    } else {
+                        remove_pending_placeholder(state, placeholder_id);
+                        if let Some(draft) = reply_draft {
+                            replies::restore_failed(state, draft);
+                        }
                     }
                 }
                 let err = error.as_deref().unwrap_or("request failed");
@@ -575,15 +589,34 @@ pub(super) fn handle_event(state: &AppState, ev: ProtocolEvent) {
                 Some(Pending::Send {
                     placeholder_id,
                     chat_mid,
+                    saved_text,
                     ..
                 }) => {
+                    let message = result
+                        .get("message")
+                        .cloned()
+                        .and_then(|value| serde_json::from_value::<MessageInfo>(value).ok())
+                        .filter(|message| !message.id.is_empty());
+                    if let Some((account, id)) = saved_text {
+                        writing_ui::complete(
+                            state,
+                            &account,
+                            id,
+                            message.is_some(),
+                            None,
+                            Some(&placeholder_id),
+                        );
+                        if message.is_none()
+                            || state.self_mid.borrow().as_deref() != Some(account.as_str())
+                        {
+                            return;
+                        }
+                    }
                     remove_pending_placeholder(state, &placeholder_id);
                     if state.current_chat.borrow().as_deref() != Some(chat_mid.as_str()) {
                         return;
                     }
-                    if let Ok(msg) = serde_json::from_value::<MessageInfo>(
-                        result.get("message").cloned().unwrap_or_default(),
-                    ) {
+                    if let Some(msg) = message {
                         if state.msg_stack.visible_child_name().as_deref() != Some("list") {
                             set_msg_state(state, "list", None);
                         }
@@ -620,6 +653,7 @@ pub(super) fn handle_event(state: &AppState, ev: ProtocolEvent) {
         }
         ProtocolEvent::Error(e) => toast(state, &e),
         ProtocolEvent::Exited(code) => {
+            writing_ui::interrupt(state);
             if !*state.restarting.borrow() {
                 tracing::warn!(code, "protocol engine exited unexpectedly");
                 schedule_sidecar_recovery(state);
@@ -657,6 +691,7 @@ pub(super) fn schedule_sidecar_recovery(state: &AppState) {
 }
 
 pub(super) fn recover_sidecar(state: &AppState) {
+    writing_ui::interrupt(state);
     match state.sidecar.recover() {
         Ok(()) => {
             state
@@ -673,6 +708,7 @@ pub(super) fn recover_sidecar(state: &AppState) {
 pub(super) fn on_logged_in(state: &AppState, result: &serde_json::Value) {
     match serde_json::from_value::<Profile>(result.clone()) {
         Ok(profile) => {
+            writing_ui::session(state, &profile.mid);
             *state.session_ready.borrow_mut() = true;
             apply_self_profile(
                 state,
@@ -708,6 +744,7 @@ pub(super) fn on_logged_in(state: &AppState, result: &serde_json::Value) {
             }
             // If chats were already painted from a warm cache event, open last chat now.
             maybe_restore_last_chat(state);
+            writing_ui::refresh(state);
             sync_discord_rpc(state);
         }
         Err(e) => toast(

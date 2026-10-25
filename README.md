@@ -78,6 +78,16 @@ This is an unofficial client. Using it may violate LINE Terms of Service. Prefer
 
 ---
 
+## 下書き・未送信本文・トーク内検索
+
+入力中の本文と引用先はアカウント・トーク別にこのPCへ保存され、トーク切り替えや次回起動時に復元されます。保存できない場合は本文を残し、送信・トーク切り替えを止めてコピーを案内します。
+
+通常のテキスト送信に失敗した場合は本文を保持し、入力欄横の未送信一覧からコピーや編集への復元ができます。送信中のまま終了したものは「結果不明」として残します。結果不明の本文を自動再送することはありません。復元先に別の下書きがある場合は上書きしません。写真・スタンプなどの送信失敗は対象外です。
+
+Ctrl＋Fまたはトーク上部の検索ボタンで、現在のトークで読み込み済みの本文を検索できます。Enterで次、Shift＋Enterで前の一致へ移動し、Escで閉じます。検索からサーバーの過去の履歴を追加取得することはありません。
+
+保存先はデータフォルダーの `writing-state.json` です。通常の送信操作はEnterのままです。
+
 ## Acknowledgments
 
 Protocol and E2EE talk to LINE through [linejs](https://github.com/evex-dev/linejs) by [evex-dev](https://github.com/evex-dev). This app is a GTK frontend around that library; it is not affiliated with LINE Corporation or evex-dev.

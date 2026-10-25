@@ -86,6 +86,7 @@ pub(super) fn wire(state: &AppState) {
                 quote: snapshot(&message),
             });
             refresh(&s);
+            writing_ui::changed(&s);
             s.composer.grab_focus();
         }
     });
@@ -111,6 +112,7 @@ pub(super) fn wire(state: &AppState) {
 pub(super) fn cancel(state: &AppState) {
     state.reply_target.borrow_mut().take();
     state.reply_preview.set_reveal_child(false);
+    writing_ui::changed(state);
 }
 
 pub(super) fn refresh(state: &AppState) {

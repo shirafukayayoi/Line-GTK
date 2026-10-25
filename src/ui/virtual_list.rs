@@ -89,6 +89,17 @@ impl VirtualMessageList {
         }
     }
 
+    pub fn scroll_to_row(&self, row: &gtk::Widget) -> bool {
+        let Some(position) =
+            (0..self.store.n_items()).find(|index| self.item_at(*index).as_ref() == Some(row))
+        else {
+            return false;
+        };
+        self.view
+            .scroll_to(position, gtk::ListScrollFlags::NONE, None);
+        true
+    }
+
     fn item_at(&self, index: u32) -> Option<gtk::Widget> {
         let item = self
             .store

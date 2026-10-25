@@ -393,6 +393,8 @@ pub(super) fn append_message(state: &AppState, msg: &MessageInfo, live: bool) {
         });
     }
     list.append(&row);
+    state.message_rows.borrow_mut().insert(msg.id.clone(), row);
+    message_search::changed(state);
 }
 
 pub(super) fn format_outgoing_status(read: bool, created_ms: i64) -> String {
@@ -1244,6 +1246,8 @@ pub(super) fn append_link_chips(_state: &AppState, bubble: &gtk::Box, text: &str
 }
 
 pub(super) fn clear_messages(state: &AppState) {
+    message_search::reset_rows(state);
+    state.message_rows.borrow_mut().clear();
     let changed_chat = state.reply_target.borrow().as_ref().is_some_and(|target| {
         state.current_chat.borrow().as_deref() != Some(target.chat_mid.as_str())
     });

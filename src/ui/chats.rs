@@ -49,6 +49,7 @@ pub(super) fn apply_chats(state: &AppState, mut chats: Vec<ChatInfo>, cached: bo
         maybe_restore_last_chat(state);
     }
     refresh_tray_menu(state);
+    writing_ui::refresh(state);
 }
 
 pub(super) fn select_sidebar_chat(state: &AppState, mid: Option<&str>) {
@@ -137,6 +138,7 @@ pub(super) fn upsert_chat_row(state: &AppState, chat: ChatInfo) {
         &[("n", &n.to_string())],
     ));
     refresh_tray_menu(state);
+    writing_ui::refresh(state);
 }
 
 pub(super) fn promote_chat_to_top(state: &AppState, mid: &str) {
@@ -167,6 +169,7 @@ pub(super) fn promote_chat_to_top(state: &AppState, mid: &str) {
     // Keep selection on the open chat after row reorder.
     select_sidebar_chat(state, state.current_chat.borrow().as_deref());
     refresh_tray_menu(state);
+    writing_ui::refresh(state);
 }
 
 pub(super) fn update_chat_row_name(row: &gtk::ListBoxRow, name: &str) {
@@ -414,6 +417,7 @@ pub(super) fn clear_unread_badge(state: &AppState, chat_mid: &str) {
             .set_text(&crate::i18n::t("conversation"));
     }
     refresh_tray_menu(state);
+    writing_ui::refresh(state);
 }
 
 pub(super) fn bump_unread(state: &AppState, chat_mid: &str) {
@@ -433,6 +437,7 @@ pub(super) fn bump_unread(state: &AppState, chat_mid: &str) {
         badge.set_visible(true);
     }
     refresh_tray_menu(state);
+    writing_ui::refresh(state);
 }
 
 pub(super) fn update_mute_btn(state: &AppState, muted: bool) {
