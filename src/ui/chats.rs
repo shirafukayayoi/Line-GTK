@@ -528,12 +528,16 @@ pub(super) fn refresh_read_labels(state: &AppState) {
         let (text, tooltip, read) = receipt_status(state, id, times.get(id).copied().unwrap_or(0));
         label.set_text(&text);
         label.set_tooltip_text(Some(&tooltip));
+        if message_senders::is_group(state) {
+            label.set_has_tooltip(false);
+        }
         if read {
             label.add_css_class("line-msg-status-read");
         } else {
             label.remove_css_class("line-msg-status-read");
         }
     }
+    reader_hover::refresh(state);
 }
 
 pub(super) fn receipt_status(

@@ -415,6 +415,9 @@ pub(super) fn append_message(state: &AppState, msg: &MessageInfo, live: bool) {
                 .borrow_mut()
                 .insert(msg.id.clone(), status.clone());
         }
+        if tracks_receipt {
+            reader_hover::attach(state, &status, &msg.id);
+        }
         col.append(&status);
         outer.append(&gtk::Box::builder().hexpand(true).build());
         outer.append(&col);
@@ -1320,6 +1323,7 @@ pub(super) fn append_link_chips(_state: &AppState, bubble: &gtk::Box, text: &str
 }
 
 pub(super) fn clear_messages(state: &AppState) {
+    reader_hover::close(state);
     message_search::reset_rows(state);
     state.chat_event_labels.borrow_mut().clear();
     let generation = state.message_render_generation.borrow().wrapping_add(1);

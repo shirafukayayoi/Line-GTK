@@ -1180,6 +1180,12 @@ pub fn load_css() {
             font-weight: 600;
             color: @accent_color;
         }
+        .line-readers-popup {
+            background: @window_bg_color;
+            border: 1px solid @borders;
+            border-radius: 10px;
+            box-shadow: 0 3px 12px alpha(@window_fg_color, 0.18);
+        }
         .line-message-sender {
             font-size: 0.82em;
             font-weight: 600;

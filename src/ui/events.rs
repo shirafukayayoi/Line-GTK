@@ -859,6 +859,7 @@ pub(super) fn handle_event(state: &AppState, ev: ProtocolEvent) {
         }
         ProtocolEvent::Error(e) => toast(state, &e),
         ProtocolEvent::Exited(code) => {
+            reader_hover::close(state);
             writing_ui::interrupt(state);
             scheduled_replies::interrupt(state);
             resume_sync::cancel(state);
@@ -915,6 +916,7 @@ pub(super) fn recover_sidecar(state: &AppState) {
 }
 
 pub(super) fn on_logged_in(state: &AppState, result: &serde_json::Value) {
+    reader_hover::close(state);
     scheduled_replies::interrupt(state);
     contact_blocks::reset(state);
     *state.unread_sync.borrow_mut() = unread_sync::UnreadSync::default();
@@ -1000,6 +1002,7 @@ pub(super) fn show_shell_restoring(state: &AppState) {
 }
 
 pub(super) fn show_login(state: &AppState, hint: &str) {
+    reader_hover::close(state);
     history::reset(state);
     *state.unread_sync.borrow_mut() = unread_sync::UnreadSync::default();
     state.notif_pending.borrow_mut().clear();

@@ -567,5 +567,7 @@
   "message_search_previous": "Previous match (Shift+Enter)",
   "message_search_next": "Next match (Enter)",
   "message_search_close": "Close search (Esc)",
-  "message_search_open": "Search conversation (Ctrl+F)"
+  "message_search_open": "Search conversation (Ctrl+F)",
+  "receipt_readers_title": "Read by ({n})",
+  "receipt_reader_unknown": "Name unavailable ({id})"
 }

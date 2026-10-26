@@ -439,5 +439,7 @@
   "tray_mute_for_hours": "ปิดเสียง {n} ชั่วโมง",
   "tray_quit": "ออก",
   "date_format": "%a, %b %-d",
-  "time_format": "%-I:%M %p"
+  "time_format": "%-I:%M %p",
+  "receipt_readers_title": "Read by ({n})",
+  "receipt_reader_unknown": "Name unavailable ({id})"
 }

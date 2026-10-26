@@ -25,6 +25,7 @@ mod messages;
 mod notifications;
 mod pinned_chats;
 mod read_pause;
+mod reader_hover;
 mod replies;
 mod resume_sync;
 mod scheduled_replies;
@@ -122,6 +123,9 @@ fn build_ui(app: &Application, repo_root: PathBuf, data_dir: PathBuf) -> Result<
         .remember_login
         .set_active(config.borrow().startup_auto_login);
     let shell = shell::build_shell_page();
+    shell.sidebar_paned.set_end_child(None::<&gtk::Widget>);
+    let reader_overlay = gtk::Overlay::builder().child(&shell.conversation).build();
+    shell.sidebar_paned.set_end_child(Some(&reader_overlay));
 
     stack.add_named(&login.page, Some("login"));
     stack.add_named(&shell.page, Some("shell"));
@@ -215,6 +219,8 @@ fn build_ui(app: &Application, repo_root: PathBuf, data_dir: PathBuf) -> Result<
         seen_msg_ids: Rc::new(RefCell::new(HashSet::new())),
         last_incoming_id: Rc::new(RefCell::new(None)),
         peer_reads: Rc::new(RefCell::new(crate::read_receipts::ReadReceipts::default())),
+        reader_hover: Rc::new(RefCell::new(reader_hover::State::default())),
+        reader_overlay,
         unread_sync: Rc::new(RefCell::new(unread_sync::UnreadSync::default())),
         restored_last_chat: Rc::new(RefCell::new(false)),
         media_queue: Rc::new(RefCell::new(VecDeque::new())),
@@ -313,6 +319,7 @@ fn build_ui(app: &Application, repo_root: PathBuf, data_dir: PathBuf) -> Result<
     wire_sidebar(&state);
     wire_composer_narrow(&state);
     wire_actions(&state);
+    reader_hover::wire(&state);
     replies::wire(&state);
     unsend::wire(&state);
     wire_scroll_pin(&state);

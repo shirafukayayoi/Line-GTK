@@ -567,5 +567,7 @@
   "message_search_previous": "前の一致（Shift＋Enter）",
   "message_search_next": "次の一致（Enter）",
   "message_search_close": "検索を閉じる（Esc）",
-  "message_search_open": "トーク内検索（Ctrl＋F）"
+  "message_search_open": "トーク内検索（Ctrl＋F）",
+  "receipt_readers_title": "既読にした人（{n}人）",
+  "receipt_reader_unknown": "名前未取得（{id}）"
 }
