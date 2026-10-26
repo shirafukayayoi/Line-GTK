@@ -127,7 +127,14 @@ export function createMessageSenders(runtime: Runtime) {
       const reply = message.replyTo as Json | null | undefined;
       if (reply && !reply.mine && userMid(reply.from)) mids.add(reply.from);
     }
-    for (const mid of mids) {
+    resolve([...mids]);
+  }
+
+  // 発言していない既読者にも、送信者と同じ名前キャッシュ・取得制限を使う。
+  function resolve(mids: string[]) {
+    if (!sync()) return;
+    for (const mid of new Set(mids)) {
+      if (!userMid(mid)) continue;
       if (mid === ownerMid) continue;
       const cached = profiles.get(mid);
       if (cached && cached.until > now()) {
@@ -152,5 +159,5 @@ export function createMessageSenders(runtime: Runtime) {
     schedule();
   }
 
-  return { observe, refresh };
+  return { observe, refresh, resolve };
 }

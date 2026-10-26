@@ -5,6 +5,54 @@ import {
   normalizeReadRanges,
 } from "../src/read_receipts.ts";
 
+Deno.test("確認できたグループ既読者だけを名前取得へ渡し、切替前の応答は渡さない", async () => {
+  const names: string[][] = [];
+  let owner = "u-self";
+  const client = {
+    base: {
+      talk: {
+        getMessageReadRange: () =>
+          Promise.resolve([{
+            chatId: "c-group",
+            ranges: {
+              "u-silent": [{ startMessageId: "100", endMessageId: "120" }],
+              "u-self": [{ startMessageId: "0", endMessageId: "999" }],
+              "u-invalid": [{ startMessageId: "120", endMessageId: "100" }],
+            },
+          }]),
+      },
+    },
+  } as unknown as Client;
+  const service = createReadReceipts({
+    getClient: () => client,
+    selfMid: () => owner,
+    emit: () => {},
+    observeReaders: (mids) => names.push(mids),
+  });
+  await service.refresh("c-group");
+  assertEquals(names, [["u-silent"]]);
+  const late = service.refresh("c-group");
+  owner = "u-other";
+  await late;
+  assertEquals(names, [["u-silent"]]);
+  service.handleOperation({
+    type: "55",
+    param1: "c-group",
+    param2: "u-live",
+    param3: "121",
+  });
+  await service.refresh("c-group");
+  assertEquals(names[1], ["u-live"]);
+  const before = names.length;
+  service.handleOperation({
+    type: "55",
+    param1: "u-peer",
+    param2: "u-peer",
+    param3: "122",
+  });
+  assertEquals(names.length, before);
+});
+
 Deno.test("既読範囲は名前付きと数値キーの両形式を読み、64ビットIDを保持する", () => {
   const ranges = normalizeReadRanges(
     [{

@@ -68,6 +68,7 @@ type ReadReceiptRuntime = {
   getClient: () => Client | null;
   selfMid: () => string;
   emit: (event: string, payload: Json) => void;
+  observeReaders?: (mids: string[]) => void;
 };
 
 export function createReadReceipts(runtime: ReadReceiptRuntime) {
@@ -89,10 +90,14 @@ export function createReadReceipts(runtime: ReadReceiptRuntime) {
         if (runtime.getClient() !== client || runtime.selfMid() !== selfMid) {
           return;
         }
+        const readers = normalizeReadRanges(response, chatMid, selfMid);
         runtime.emit("read_ranges", {
           chatMid,
-          readers: normalizeReadRanges(response, chatMid, selfMid),
+          readers,
         });
+        if (/^[cr]/.test(chatMid)) {
+          runtime.observeReaders?.(readers.map((reader) => reader.userMid));
+        }
       } catch {
         // 既読情報が取れなくても本文を表示し、確認済みの状態は維持する。
         console.error("[read-receipts] 既読情報を取得できませんでした。");
@@ -119,6 +124,7 @@ export function createReadReceipts(runtime: ReadReceiptRuntime) {
       (chatMid.startsWith("u") && userMid !== chatMid)
     ) return true;
     runtime.emit("read_receipt", { chatMid, userMid, messageId: id });
+    if (/^[cr]/.test(chatMid)) runtime.observeReaders?.([userMid]);
     // グループでは読み始めた位置も確認し、参加前などの履歴を既読にしない。
     if (/^[cr]/.test(chatMid)) void refresh(chatMid);
     return true;

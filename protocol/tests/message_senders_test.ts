@@ -203,3 +203,19 @@ Deno.test("名前の変更・キャッシュ期限と、個別の表示名を反
   await settle();
   assertEquals(f.events.at(-1)?.name, "変更した名前");
 });
+
+Deno.test("発言していない既読者も名前を取得し、送信者との重複や自己IDを除く", async () => {
+  const f = fixture();
+  f.service.resolve(["u-silent", "u-silent", "u-self", "", "c-group", "u bad"]);
+  f.service.observe([groupMessage("u-silent")]);
+  await settle();
+  assertEquals(f.batches, [["u-silent"]]);
+  assertEquals(f.events, [{ mid: "u-silent", name: "名前:u-silent" }]);
+  f.service.resolve(["u-silent"]);
+  await settle();
+  assertEquals(f.batches, [["u-silent"]]);
+  f.logout();
+  f.service.resolve(["u-other"]);
+  await settle();
+  assertEquals(f.batches, [["u-silent"]]);
+});

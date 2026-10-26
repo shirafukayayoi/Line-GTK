@@ -351,6 +351,7 @@ const readReceipts = createReadReceipts({
   getClient: () => client,
   selfMid: myMid,
   emit: emitEvent,
+  observeReaders: messageSenders.resolve,
 });
 
 const unreadSync = createUnreadSync({
