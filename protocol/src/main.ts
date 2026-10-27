@@ -246,14 +246,20 @@ async function forUiMessages(
   chatMid?: string,
   latest = true,
 ) {
+  const account = myMid();
+  const generation = workGen;
+  const current = () =>
+    !authDead && account === myMid() && generation === workGen;
   if (chatMid) messages = await unsends.mask(chatMid, messages);
+  if (!current()) return [];
   if (chatMid) {
-    messages = await retainedUnsent.merge(myMid(), chatMid, messages, latest);
+    messages = await retainedUnsent.merge(account, chatMid, messages, latest);
   }
   if (chatMid) messages = await chatEvents.merge(chatMid, messages);
   messageSenders.observe(messages);
   emojiService.observe(messages);
   const visible = await messageView.forUiMessages(messages);
+  if (!current()) return [];
   retainedUnsent.observe(chatMid, visible);
   return visible;
 }

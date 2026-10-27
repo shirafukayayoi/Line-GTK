@@ -73,6 +73,11 @@ Deno.test("受信済み本文を取消の印付きで残し、再起動とサー
   try {
     const f = fixture(dir);
     const original = message();
+    original.replyTo = {
+      messageId: "99",
+      text: "保存コピーへ複製しない引用文",
+      mine: true,
+    };
     f.keep.observe("u-peer", [original]);
     await f.cancel();
     await f.cancel();
@@ -82,6 +87,12 @@ Deno.test("受信済み本文を取消の印付きで残し、再起動とサー
     assertEquals(saved.text, original.text);
     assertEquals(saved.unsentRetained, true);
     assertEquals(saved.unsentAccountMid, "u-self");
+    assertEquals(saved.replyTo, { messageId: "99" });
+    assertEquals(
+      (await Deno.readTextFile(dir + "/retained-unsent-u-self.json"))
+        .includes("保存コピーへ複製しない引用文"),
+      false,
+    );
     assertEquals((f.events[0].retainedMessage as Json).text, original.text);
     const restarted = createRetainedUnsent(f.runtime);
     assertEquals(
