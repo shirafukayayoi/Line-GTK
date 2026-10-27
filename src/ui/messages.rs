@@ -20,7 +20,7 @@ pub(super) fn apply_messages(state: &AppState, mut messages: Vec<MessageInfo>) {
         state.unsent_ids.borrow_mut().extend(
             messages
                 .iter()
-                .filter(|m| m.content_type == "UNSENT")
+                .filter(|m| m.content_type == "UNSENT" || m.unsent_retained)
                 .map(|m| (account.clone(), m.id.clone())),
         );
     }
@@ -68,7 +68,9 @@ pub(super) fn apply_messages(state: &AppState, mut messages: Vec<MessageInfo>) {
     let last_incoming = messages
         .iter()
         .rev()
-        .find(|m| !m.mine && m.chat_event.is_none() && m.content_type != "UNSENT")
+        .find(|m| {
+            !m.mine && !m.unsent_retained && m.chat_event.is_none() && m.content_type != "UNSENT"
+        })
         .map(|m| m.id.clone());
     if let Some(id) = last_incoming.clone() {
         *state.last_incoming_id.borrow_mut() = Some(id);
@@ -481,6 +483,9 @@ pub(super) fn append_message(state: &AppState, msg: &MessageInfo, live: bool) {
         });
     }
     list.append(&row);
+    if msg.unsent_retained {
+        unsend::retained_notice(&row);
+    }
 }
 
 pub(super) fn outgoing_read_label(read_count: usize, group: bool) -> String {
@@ -1087,6 +1092,8 @@ pub(super) fn attach_audio_to_slot(state: &AppState, message_id: &str, path: &st
     }
     let duration_ms = ffprobe_duration_ms(std::path::Path::new(path)).map(|v| v as i64);
     let msg = MessageInfo {
+        unsent_retained: false,
+        unsent_owner: None,
         chat_event: None,
         emojis: Vec::new(),
         id: message_id.to_string(),

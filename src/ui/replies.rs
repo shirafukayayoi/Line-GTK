@@ -15,6 +15,9 @@ pub(super) struct ReplyDraft {
 }
 
 fn eligible(message: &MessageInfo) -> bool {
+    if message.unsent_retained {
+        return false;
+    }
     message.id.parse::<u128>().is_ok_and(|id| id > 0)
         && message.chat_event.is_none()
         && !message.decryption_failed
@@ -249,7 +252,7 @@ fn popup(bubble: &gtk::Box, menu: &gio::Menu, x: f64, y: f64) {
 }
 
 pub(super) fn wire_context(bubble: &gtk::Box, message: &MessageInfo) {
-    if !eligible(message) && !unsend::eligible(message) {
+    if !eligible(message) && !unsend::eligible(message) && message.text.is_empty() {
         return;
     }
     // 仮想リストから行が外れたら、開いているメニューも片付ける。

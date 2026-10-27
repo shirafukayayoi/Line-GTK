@@ -569,5 +569,6 @@
   "message_search_close": "Close search (Esc)",
   "message_search_open": "Search conversation (Ctrl+F)",
   "receipt_readers_title": "Read by ({n})",
-  "receipt_reader_unknown": "Name unavailable ({id})"
+  "receipt_reader_unknown": "Name unavailable ({id})",
+  "message_unsent_retained": "Sender unsent this message · Showing the received copy"
 }

@@ -317,6 +317,8 @@ pub(super) fn send_sticker_now(
                 id,
                 &chat_mid,
                 MessageInfo {
+                    unsent_retained: false,
+                    unsent_owner: None,
                     chat_event: None,
                     emojis: Vec::new(),
                     id: String::new(),
@@ -664,6 +666,8 @@ pub(super) fn send_local_media_path(state: &AppState, path: PathBuf) {
                 id,
                 &chat_mid,
                 MessageInfo {
+                    unsent_retained: false,
+                    unsent_owner: None,
                     chat_event: None,
                     emojis: Vec::new(),
                     id: String::new(),
@@ -883,6 +887,8 @@ pub(super) fn finish_voice_record(state: &AppState, send: bool) {
                 id,
                 &chat_mid,
                 MessageInfo {
+                    unsent_retained: false,
+                    unsent_owner: None,
                     chat_event: None,
                     emojis: Vec::new(),
                     id: String::new(),

@@ -1059,6 +1059,8 @@ fn send_current(state: &AppState) {
                 id,
                 &chat_mid,
                 MessageInfo {
+                    unsent_retained: false,
+                    unsent_owner: None,
                     chat_event: None,
                     emojis: Vec::new(),
                     id: String::new(),

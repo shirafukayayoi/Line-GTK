@@ -668,6 +668,12 @@ fn read_loop<R: std::io::Read>(
                                 account_mid: field("accountMid"),
                                 chat_mid: field("chatMid"),
                                 message_id: field("messageId"),
+                                retained_message: resp
+                                    .extra
+                                    .get("retainedMessage")
+                                    .cloned()
+                                    .and_then(|value| serde_json::from_value(value).ok())
+                                    .map(Box::new),
                             }
                         }
                         "chat_event" => {

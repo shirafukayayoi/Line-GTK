@@ -2,6 +2,7 @@ use super::*;
 
 pub(super) fn eligible(message: &MessageInfo) -> bool {
     message.mine
+        && !message.unsent_retained
         && message.id.parse::<u128>().is_ok_and(|id| id > 0)
         && message.chat_event.is_none()
         && !["CALL", "CHAT_EVENT", "UNSENT"]
@@ -11,25 +12,57 @@ pub(super) fn eligible(message: &MessageInfo) -> bool {
 pub(super) fn masked(state: &AppState, message: &MessageInfo) -> MessageInfo {
     let account = state.self_mid.borrow().clone().unwrap_or_default();
     let ids = state.unsent_ids.borrow();
-    if ids.contains(&(account.clone(), message.id.clone())) || message.content_type == "UNSENT" {
-        return MessageInfo {
-            text: String::new(),
-            content_type: "UNSENT".into(),
-            image_path: None,
-            audio_path: None,
-            file_path: None,
-            file_name: None,
-            flex: None,
-            call_history: None,
-            reply_to: None,
-            chat_event: None,
-            emojis: Vec::new(),
-            decryption_failed: false,
-            duration_ms: None,
-            ..message.clone()
+    let canceled = ids.contains(&(account.clone(), message.id.clone()))
+        || message.content_type == "UNSENT"
+        || message.unsent_retained;
+    let mut message = if canceled {
+        let chat = if message.to.starts_with(['c', 'r']) {
+            &message.to
+        } else {
+            &message.from
         };
-    }
-    let mut message = message.clone();
+        let retained = if message.unsent_retained
+            && message.unsent_owner.as_deref() == Some(account.as_str())
+            && received(message, &account, chat)
+        {
+            Some(message.clone())
+        } else {
+            state
+                .reply_messages
+                .borrow()
+                .get(&message.id)
+                .filter(|known| {
+                    known.unsent_retained
+                        && known.unsent_owner.as_deref() == Some(account.as_str())
+                        && received(known, &account, chat)
+                })
+                .cloned()
+        };
+        if let Some(retained) = retained {
+            retained
+        } else {
+            return MessageInfo {
+                unsent_retained: false,
+                unsent_owner: None,
+                text: String::new(),
+                content_type: "UNSENT".into(),
+                image_path: None,
+                audio_path: None,
+                file_path: None,
+                file_name: None,
+                flex: None,
+                call_history: None,
+                reply_to: None,
+                chat_event: None,
+                emojis: Vec::new(),
+                decryption_failed: false,
+                duration_ms: None,
+                ..message.clone()
+            };
+        }
+    } else {
+        message.clone()
+    };
     if let Some(quote) = &mut message.reply_to
         && ids.contains(&(account, quote.message_id.clone()))
     {
@@ -37,6 +70,53 @@ pub(super) fn masked(state: &AppState, message: &MessageInfo) -> MessageInfo {
         quote.content_type = "UNAVAILABLE".into();
     }
     message
+}
+
+fn received(message: &MessageInfo, account: &str, chat: &str) -> bool {
+    !account.is_empty()
+        && (!message.unsent_retained || message.unsent_owner.as_deref() == Some(account))
+        && !message.mine
+        && message.from.starts_with('u')
+        && message.from != account
+        && message.id.parse::<u128>().is_ok_and(|id| id > 0)
+        && !message.decryption_failed
+        && message.chat_event.is_none()
+        && !["UNSENT", "CALL", "CHAT_EVENT"].contains(&message.content_type.as_str())
+        && if chat.starts_with(['c', 'r']) {
+            message.to == chat
+        } else {
+            message.from == chat && message.to == account
+        }
+}
+
+pub(super) fn retained_notice(row: &gtk::Box) {
+    if row.has_css_class("line-unsent-retained-row") {
+        return;
+    }
+    row.add_css_class("line-unsent-retained-row");
+    row.set_orientation(gtk::Orientation::Vertical);
+    row.set_spacing(4);
+    row.prepend(
+        &gtk::Label::builder()
+            .label(crate::i18n::t("message_unsent_retained"))
+            .xalign(0.0)
+            .wrap(true)
+            .css_classes(["caption", "dim-label", "line-unsent-retained-note"])
+            .margin_start(8)
+            .margin_top(4)
+            .build(),
+    );
+    fn remove_reply(widget: &gtk::Widget) {
+        if widget.has_css_class("line-reply-button") {
+            widget.set_visible(false);
+        }
+        let mut child = widget.first_child();
+        while let Some(widget) = child {
+            child = widget.next_sibling();
+            remove_reply(&widget);
+        }
+    }
+    remove_reply(row.upcast_ref());
 }
 
 pub(super) fn placeholder(row: &gtk::Box) {
@@ -56,7 +136,13 @@ pub(super) fn placeholder(row: &gtk::Box) {
     row.append(&label);
 }
 
-pub(super) fn apply(state: &AppState, account: &str, chat_mid: &str, id: &str) {
+pub(super) fn apply(
+    state: &AppState,
+    account: &str,
+    chat_mid: &str,
+    id: &str,
+    retained: Option<&MessageInfo>,
+) {
     if !*state.session_ready.borrow()
         || state.self_mid.borrow().as_deref() != Some(account)
         || !id.parse::<u128>().is_ok_and(|id| id > 0)
@@ -80,11 +166,47 @@ pub(super) fn apply(state: &AppState, account: &str, chat_mid: &str, id: &str) {
         return;
     }
     let original = state.reply_messages.borrow().get(id).cloned();
-    if let Some(original) = original {
+    let needs_row = original
+        .as_ref()
+        .is_none_or(|message| !received(message, account, chat_mid));
+    let retained = original
+        .as_ref()
+        .filter(|message| received(message, account, chat_mid))
+        .or_else(|| {
+            retained.filter(|message| message.id == id && received(message, account, chat_mid))
+        });
+    if let Some(original) = retained {
+        let mut original = original.clone();
+        original.unsent_retained = true;
+        original.unsent_owner = Some(account.into());
         state
             .reply_messages
             .borrow_mut()
-            .insert(id.into(), masked(state, &original));
+            .insert(id.into(), original.clone());
+        if let Some(media) = state.media_msgs.borrow_mut().get_mut(id) {
+            media.unsent_retained = true;
+            media.unsent_owner = Some(account.into());
+        }
+        let row = state.message_rows.borrow().get(id).cloned();
+        if let Some(row) = row {
+            if needs_row {
+                state.seen_msg_ids.borrow_mut().remove(id);
+                state
+                    .message_list
+                    .insert_before(Some(row.upcast_ref()), || {
+                        append_message(state, &original, false)
+                    });
+                state.message_list.remove(&row);
+            } else {
+                retained_notice(&row);
+            }
+        }
+        refresh_after_unsend(state, id);
+        return;
+    }
+    if let Some(original) = original {
+        let masked = masked(state, &original);
+        state.reply_messages.borrow_mut().insert(id.into(), masked);
     }
     if let Some(row) = state.message_rows.borrow().get(id) {
         placeholder(row);
@@ -94,11 +216,17 @@ pub(super) fn apply(state: &AppState, account: &str, chat_mid: &str, id: &str) {
     state.media_ready_paths.borrow_mut().remove(id);
     state.receipt_slots.borrow_mut().remove(id);
     state.msg_created.borrow_mut().remove(id);
+    refresh_after_unsend(state, id);
+}
+
+fn refresh_after_unsend(state: &AppState, id: &str) {
     let incoming = state
         .reply_messages
         .borrow()
         .values()
-        .filter(|m| !m.mine && m.chat_event.is_none() && m.content_type != "UNSENT")
+        .filter(|m| {
+            !m.mine && !m.unsent_retained && m.chat_event.is_none() && m.content_type != "UNSENT"
+        })
         .max_by_key(|m| m.created_time)
         .map(|m| m.id.clone());
     *state.last_incoming_id.borrow_mut() = incoming;
@@ -147,7 +275,7 @@ pub(super) fn response(state: &AppState, account: &str, chat_mid: &str, id: &str
         return;
     }
     if ok {
-        apply(state, account, chat_mid, id);
+        apply(state, account, chat_mid, id, None);
     } else {
         toast(state, &crate::i18n::t("unsend_failed"));
     }
@@ -173,5 +301,25 @@ mod tests {
         assert!(!eligible(&message));
         message.content_type = "CALL".into();
         assert!(!eligible(&message));
+    }
+
+    #[test]
+    fn retained_messages_belong_to_the_receiving_account_and_conversation() {
+        let mut message: MessageInfo = serde_json::from_value(serde_json::json!({
+            "id":"100", "mine":false, "from":"u-peer", "to":"u-self", "text":"受信本文", "contentType":"NONE"
+        })).unwrap();
+        assert!(received(&message, "u-self", "u-peer"));
+        assert!(!received(&message, "u-other", "u-peer"));
+        assert!(!received(&message, "u-self", "u-other"));
+        message.unsent_retained = true;
+        assert!(!received(&message, "u-self", "u-peer"));
+        message.unsent_owner = Some("u-self".into());
+        assert!(received(&message, "u-self", "u-peer"));
+        assert!(!eligible(&message));
+        message.to = "c-group".into();
+        assert!(received(&message, "u-self", "c-group"));
+        assert!(!received(&message, "u-other", "c-group"));
+        message.mine = true;
+        assert!(!received(&message, "u-self", "c-group"));
     }
 }

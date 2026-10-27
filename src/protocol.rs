@@ -133,6 +133,10 @@ pub struct LineEmoji {
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
 pub struct MessageInfo {
+    #[serde(rename = "unsentRetained", default)]
+    pub unsent_retained: bool,
+    #[serde(rename = "unsentAccountMid", default)]
+    pub unsent_owner: Option<String>,
     #[serde(rename = "chatEvent", default)]
     pub chat_event: Option<ChatEventInfo>,
     #[serde(default)]
@@ -212,6 +216,7 @@ pub enum ProtocolEvent {
         account_mid: String,
         chat_mid: String,
         message_id: String,
+        retained_message: Option<Box<MessageInfo>>,
     },
     Message(Box<MessageInfo>),
     Chats {

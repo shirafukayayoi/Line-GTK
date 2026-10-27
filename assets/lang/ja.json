@@ -569,5 +569,6 @@
   "message_search_close": "検索を閉じる（Esc）",
   "message_search_open": "トーク内検索（Ctrl＋F）",
   "receipt_readers_title": "既読にした人（{n}人）",
-  "receipt_reader_unknown": "名前未取得（{id}）"
+  "receipt_reader_unknown": "名前未取得（{id}）",
+  "message_unsent_retained": "相手が送信を取り消しました（受信済みの内容を表示中）"
 }

@@ -1199,6 +1199,8 @@ pub(super) fn send_local_image_file(state: &AppState, path: &std::path::Path) ->
                 id,
                 &chat_mid,
                 MessageInfo {
+                    unsent_retained: false,
+                    unsent_owner: None,
                     chat_event: None,
                     emojis: Vec::new(),
                     id: String::new(),

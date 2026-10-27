@@ -441,5 +441,6 @@
   "date_format": "%a, %b %-d",
   "time_format": "%-I:%M %p",
   "receipt_readers_title": "Read by ({n})",
-  "receipt_reader_unknown": "Name unavailable ({id})"
+  "receipt_reader_unknown": "Name unavailable ({id})",
+  "message_unsent_retained": "Sender unsent this message · Showing the received copy"
 }

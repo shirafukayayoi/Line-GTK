@@ -22,7 +22,14 @@ pub(super) fn handle_event(state: &AppState, ev: ProtocolEvent) {
             account_mid,
             chat_mid,
             message_id,
-        } => unsend::apply(state, &account_mid, &chat_mid, &message_id),
+            retained_message,
+        } => unsend::apply(
+            state,
+            &account_mid,
+            &chat_mid,
+            &message_id,
+            retained_message.as_deref(),
+        ),
         ProtocolEvent::ChatEvent {
             account_mid,
             message,
@@ -183,7 +190,7 @@ pub(super) fn handle_event(state: &AppState, ev: ProtocolEvent) {
         ProtocolEvent::Message(msg) => {
             let msg = unsend::masked(state, &msg);
             // 取消後に遅れて届いた本文で、一覧や通知を復活させない。
-            if msg.content_type == "UNSENT" {
+            if msg.content_type == "UNSENT" || msg.unsent_retained {
                 return;
             }
             let peer = if msg.mine || msg.to.starts_with(['c', 'r']) {
