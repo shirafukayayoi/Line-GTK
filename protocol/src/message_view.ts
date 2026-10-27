@@ -241,7 +241,12 @@ export function createMessageView(runtime: MessageViewRuntime) {
         needsMedia = false;
       }
 
-      return { ...m, imagePath, audioPath, needsMedia };
+      return {
+        ...m,
+        imagePath,
+        audioPath,
+        needsMedia: m.unsentRetained === true ? false : needsMedia,
+      };
     }));
   }
 

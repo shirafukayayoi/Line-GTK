@@ -28,6 +28,7 @@ import { createCommandService } from "./commands.ts";
 import { createContactBlocks } from "./contact_blocks.ts";
 import { createListener } from "./listener.ts";
 import { createUnsendService } from "./unsend.ts";
+import { createRetainedUnsent } from "./retained_unsent.ts";
 import {
   createConnectionRecovery,
   retireClient,
@@ -240,12 +241,21 @@ const messageView = createMessageView({
   stickerDir,
 });
 const { previewLang, previewLine, extractFlex } = messageView;
-async function forUiMessages(messages: Json[], chatMid?: string) {
+async function forUiMessages(
+  messages: Json[],
+  chatMid?: string,
+  latest = true,
+) {
   if (chatMid) messages = await unsends.mask(chatMid, messages);
+  if (chatMid) {
+    messages = await retainedUnsent.merge(myMid(), chatMid, messages, latest);
+  }
   if (chatMid) messages = await chatEvents.merge(chatMid, messages);
   messageSenders.observe(messages);
   emojiService.observe(messages);
-  return messageView.forUiMessages(messages);
+  const visible = await messageView.forUiMessages(messages);
+  retainedUnsent.observe(chatMid, visible);
+  return visible;
 }
 
 const stickers = createStickerService({
@@ -378,10 +388,37 @@ const contactBlocks = createContactBlocks({
   emit: emitEvent,
 });
 
+const retainedUnsent = createRetainedUnsent({
+  dataDir,
+  selfMid: () => authDead ? "" : myMid(),
+  peekDisk: async (account, chat, id) => {
+    try {
+      const raw = JSON.parse(
+        await Deno.readTextFile(join(msgDiskDir, `${chat}.json`)),
+      );
+      if (raw.accountMid !== account || !Array.isArray(raw.messages)) {
+        return undefined;
+      }
+      return restoreCachedMessages(raw.messages as Json[]).find((message) =>
+        String(message.id) === id
+      );
+    } catch {
+      return undefined;
+    }
+  },
+});
+
 const unsends = createUnsendService({
   getClient: () => authDead ? null : client,
   dataDir,
   emit: emitEvent,
+  retained: {
+    ...retainedUnsent,
+    capture: async (account, chat, id) => {
+      const saved = await retainedUnsent.capture(account, chat, id);
+      return saved ? (await messageView.forUiMessages([saved]))[0] : undefined;
+    },
+  },
   findMessage: async (chatMid, id, createdTime) => {
     const cached = msgCache.get(chatMid)?.messages ??
       await loadDiskMessages(chatMid);
@@ -434,13 +471,17 @@ const unsends = createUnsendService({
 const listener = createListener({
   prepareMessage: async (message) => {
     const [prepared] = await unsends.mask(conversationMid(message), [message]);
-    return prepared?.contentType === "UNSENT" ? null : prepared ?? null;
+    return prepared?.contentType === "UNSENT" ||
+        prepared?.unsentRetained === true
+      ? null
+      : prepared ?? null;
   },
   handleIncomingCall: calls.handleIncomingCall,
   handleCallCancel: calls.handleCallCancel,
   shouldIgnoreMessage: contactBlocks.ignoreMessage,
   getClient: () => client,
   observeMessage: (message) => {
+    retainedUnsent.observe(undefined, [message]);
     unreadSync.observeMessage(message);
     messageSenders.observe([message]);
     emojiService.observe([message]);
@@ -835,10 +876,15 @@ async function loadDiskMessages(chatMid: string): Promise<Json[] | null> {
       await Deno.readTextFile(join(msgDiskDir, `${chatMid}.json`)),
     );
     if (Date.now() - Number(raw.at || 0) > cachePolicy().diskMsg) return null;
+    if (raw.accountMid && raw.accountMid !== myMid()) return null;
     if (Array.isArray(raw.messages)) {
       return await unsends.mask(
         chatMid,
-        restoreCachedMessages(raw.messages as Json[]),
+        restoreCachedMessages(raw.messages as Json[]).map((message) =>
+          raw.accountMid === myMid()
+            ? message
+            : { ...message, retentionEligible: false }
+        ),
       );
     }
   } catch { /* miss */ }
@@ -849,6 +895,7 @@ async function saveDiskMessages(chatMid: string, messages: Json[]) {
   try {
     await atomicWriteJson(join(msgDiskDir, `${chatMid}.json`), {
       at: Date.now(),
+      accountMid: myMid(),
       messages: await unsends.mask(chatMid, messages),
     });
   } catch (error) {
@@ -1247,7 +1294,7 @@ async function hydrateMedia(
   const epochOk = () => isolated || mediaEpoch.get(chatMid) === epoch;
   const gen = workGen;
   const pending = messages
-    .filter((m) => m.needsMedia && m.id)
+    .filter((m) => m.unsentRetained !== true && m.needsMedia && m.id)
     .slice()
     .reverse(); // newest first
   if (!pending.length) return;
@@ -2060,14 +2107,19 @@ async function handle(req: Json) {
           params.durationMs != null ? Number(params.durationMs) : undefined,
         );
         break;
-      case "download_media":
+      case "download_media": {
+        const chat = String(params.chatMid ?? "");
+        const messageId = String(params.messageId ?? "");
+        const retained = await retainedUnsent.get(myMid(), chat, messageId);
         await outgoingMedia.downloadMedia(
           id,
           String(params.chatMid ?? ""),
           String(params.messageId ?? ""),
           String(params.contentType ?? ""),
+          retained,
         );
         break;
+      }
       case "send_sticker":
         await stickers.send(
           id,
@@ -2183,6 +2235,7 @@ async function handle(req: Json) {
         if (kind === "avatars" || kind === "all") await wipe(avatarDir);
         if (kind === "messages" || kind === "all") {
           await wipe(msgDiskDir);
+          await retainedUnsent.clear();
           chatEvents.reset();
         }
         if (kind === "chats" || kind === "all") {

@@ -79,7 +79,11 @@ export type CommandRuntime = {
   bumpMediaEpoch: (chatMid: string) => number;
   loadDiskMessages: (chatMid: string) => Promise<Json[] | null>;
   saveDiskMessages: (chatMid: string, messages: Json[]) => Promise<void>;
-  forUiMessages: (messages: Json[], chatMid?: string) => Promise<Json[]>;
+  forUiMessages: (
+    messages: Json[],
+    chatMid?: string,
+    latest?: boolean,
+  ) => Promise<Json[]>;
   hydrateMedia: (
     messages: Json[],
     chatMid: string,
@@ -863,6 +867,12 @@ export function createCommandService(runtime: CommandRuntime) {
     const original = msgCache.get(chatMid)?.messages.find((m) =>
       m.id === relatedMessageId
     );
+    if (
+      original?.unsentRetained === true || original?.contentType === "UNSENT"
+    ) {
+      fail(id, "invalid_reply_target");
+      return;
+    }
     const replyTo = relatedMessageId
       ? (original ? replySnapshot(original) : { messageId: relatedMessageId })
       : null;

@@ -10,6 +10,35 @@ webm.set([0x1a, 0x45, 0xdf, 0xa3]);
 const poster = new Uint8Array(250_000);
 poster.set([0xff, 0xd8, 0xff]);
 
+Deno.test("取消後に保持した動画は保存済みの原本だけを返し、再取得しない", () =>
+  fixture(async (f) => {
+    f.withoutMessage();
+    const path = f.mediaDest("1", "mp4");
+    await Deno.writeFile(path, mp4);
+    await f.service.downloadMedia(7, "u-peer", "1", "VIDEO", {
+      id: "1",
+      contentType: "VIDEO",
+      unsentRetained: true,
+      filePath: path,
+    });
+    assertEquals(f.fetches(), 0);
+    assertEquals(f.errors, []);
+    assertEquals((f.replies[0] as { path: string }).path, path);
+  }));
+
+Deno.test("取消後の動画がプレビューしかない場合はサーバーへ再取得しない", () =>
+  fixture(async (f) => {
+    await Deno.writeFile(join(f.dir, "1.full.jpg"), poster);
+    await f.service.downloadMedia(7, "u-peer", "1", "VIDEO", {
+      id: "1",
+      contentType: "VIDEO",
+      unsentRetained: true,
+    });
+    assertEquals(f.fetches(), 0);
+    assertEquals(f.replies, []);
+    assertEquals(f.errors, ["retained_media_not_cached"]);
+  }));
+
 async function fixture(test: (f: ReturnType<typeof make>) => Promise<void>) {
   const dir = await Deno.makeTempDir();
   try {

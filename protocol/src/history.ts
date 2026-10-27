@@ -115,12 +115,12 @@ export function createHistoryService(runtime: CommandRuntime) {
         );
       }
       messages.sort((a, b) => Number(a.createdTime) - Number(b.createdTime));
-      const prepared = await runtime.forUiMessages(messages, chatMid);
+      const prepared = await runtime.forUiMessages(messages, chatMid, false);
       const ids = new Set(messages.map((message) => String(message.id)));
       const times = messages.map((message) => Number(message.createdTime));
       const ui = prepared.filter((message) =>
         ids.has(String(message.id)) ||
-        (message.chatEvent &&
+        ((message.chatEvent || message.unsentRetained === true) &&
           Number(message.createdTime) >= Math.min(...times) &&
           Number(message.createdTime) <= Math.max(...times))
       );

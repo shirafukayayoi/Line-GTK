@@ -2,6 +2,7 @@ import type { Client } from "@evex/linejs";
 import { join } from "@std/path";
 import { atomicWriteJson } from "./storage.ts";
 import { replyMessageId } from "./replies.ts";
+import type { createRetainedUnsent } from "./retained_unsent.ts";
 
 type Json = Record<string, unknown>;
 type Index = Record<string, string>;
@@ -15,6 +16,7 @@ type Runtime = {
   ) => Promise<Json | undefined>;
   changed: (chatMid: string, id: string) => Promise<void>;
   emit: (event: string, payload: Json) => void;
+  retained?: ReturnType<typeof createRetainedUnsent>;
 };
 const chat = (mid: string) => /^[ucr][a-zA-Z0-9_-]{1,128}$/.test(mid);
 const accountOf = (client: Client | null) =>
@@ -48,6 +50,7 @@ export function unsentMessage(message: Json): Json {
 export function createUnsendService(runtime: Runtime) {
   const loaded = new Map<string, Promise<Index>>();
   const pending = new Map<string, Promise<Json>>();
+  const operations = new Set<Promise<void>>();
   let writes = Promise.resolve();
   const path = (account: string) =>
     join(runtime.dataDir, `unsent-${account}.json`);
@@ -86,7 +89,18 @@ export function createUnsendService(runtime: Runtime) {
     const index = await load(account);
     if (index[id] === chatMid) return;
     index[id] = chatMid;
-    // 元の本文を記録せず、取消済みのIDだけをアカウント別に保持する。
+    // 相手の受信済み内容だけを別の保存先へ残す。自分の取消は従来どおり隠す。
+    const retainedMessage = await runtime.retained?.capture(
+      account,
+      chatMid,
+      id,
+    ).catch((error) => {
+      console.error(
+        "[retained-unsent] 受信済み内容の保存に失敗しました。",
+        error,
+      );
+      return undefined;
+    });
     const snapshot = { version: 1, messages: { ...index } };
     writes = writes.then(() => atomicWriteJson(path(account), snapshot)).catch((
       error,
@@ -96,6 +110,7 @@ export function createUnsendService(runtime: Runtime) {
         accountMid: account,
         chatMid,
         messageId: id,
+        ...(retainedMessage ? { retainedMessage } : {}),
       });
       await runtime.changed(chatMid, id).catch((error) =>
         console.error("[unsend preview]", error)
@@ -109,8 +124,16 @@ export function createUnsendService(runtime: Runtime) {
     if (!account) return messages;
     const index = await load(account);
     if (accountOf(runtime.getClient()) !== account) return [];
-    return messages.map((message) => {
-      if (index[String(message.id)] === chatMid) return unsentMessage(message);
+    return await Promise.all(messages.map(async (message) => {
+      if (
+        index[String(message.id)] === chatMid || message.unsentRetained === true
+      ) {
+        return await runtime.retained?.get(
+          account,
+          chatMid,
+          String(message.id),
+        ) ?? unsentMessage(message);
+      }
       const quote = message.replyTo as Json | undefined;
       return quote && index[String(quote.messageId)] === chatMid
         ? {
@@ -118,7 +141,7 @@ export function createUnsendService(runtime: Runtime) {
           replyTo: { ...quote, text: "", contentType: "UNAVAILABLE" },
         }
         : message;
-    });
+    }));
   }
 
   function unsend(
@@ -169,12 +192,14 @@ export function createUnsendService(runtime: Runtime) {
     const target = unsendOperation(op);
     const account = accountOf(runtime.getClient());
     if (!target || !account) return false;
-    void record(account, target.chatMid, target.id).catch((error) =>
-      console.error("[unsend operation]", error)
-    );
+    const task = record(account, target.chatMid, target.id);
+    operations.add(task);
+    void task.catch((error) => console.error("[unsend operation]", error))
+      .finally(() => operations.delete(task));
     return true;
   }
   async function flush() {
+    while (operations.size) await Promise.allSettled([...operations]);
     await Promise.all(loaded.values());
     await writes;
   }

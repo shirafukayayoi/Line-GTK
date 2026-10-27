@@ -35,14 +35,15 @@ export function replyToOf(raw: Json): ReplyInfo | null {
 export function replySnapshot(message: Json): ReplyInfo {
   return {
     messageId: String(message.id),
-    text: message.decryptionFailed === true
+    text: message.decryptionFailed === true || message.unsentRetained === true
       ? ""
       : Array.from(String(message.text ?? "")).slice(0, 512).join(""),
     from: String(message.from ?? ""),
     mine: message.mine === true,
-    contentType: message.decryptionFailed === true
-      ? "UNAVAILABLE"
-      : String(message.contentType ?? "NONE"),
+    contentType:
+      message.decryptionFailed === true || message.unsentRetained === true
+        ? "UNAVAILABLE"
+        : String(message.contentType ?? "NONE"),
   };
 }
 

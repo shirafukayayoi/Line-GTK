@@ -707,6 +707,7 @@ export function createOutgoingMedia(runtime: OutgoingMediaRuntime) {
     chatMid: string,
     messageId: string,
     contentTypeHint = "",
+    retainedMessage?: Json,
   ) {
     const client = runtime.getClient();
     if (!client) {
@@ -723,9 +724,8 @@ export function createOutgoingMedia(runtime: OutgoingMediaRuntime) {
         : "FILE";
       let fileName: string | null = null;
       try {
-        const cached = getCachedMessages(chatMid)?.find((m) =>
-          String(m.id) === messageId
-        );
+        const cached = retainedMessage ??
+          getCachedMessages(chatMid)?.find((m) => String(m.id) === messageId);
         if (cached) {
           hintCt = normType(cached.contentType);
           if (typeof cached.fileName === "string") fileName = cached.fileName;
@@ -756,6 +756,9 @@ export function createOutgoingMedia(runtime: OutgoingMediaRuntime) {
           join(mediaDir, `${messageId}.${fileName.replace(/[\/\\]/g, "_")}`),
         );
       }
+      if (typeof retainedMessage?.filePath === "string") {
+        localCandidates.unshift(retainedMessage.filePath);
+      }
       for (const p of localCandidates) {
         const hit = await existingFile(p);
         if (!hit) continue;
@@ -781,6 +784,10 @@ export function createOutgoingMedia(runtime: OutgoingMediaRuntime) {
         } catch { /* try next */ }
       }
 
+      if (retainedMessage) {
+        fail(id, "retained_media_not_cached");
+        return;
+      }
       const got = await refetchMessageData(chatMid, messageId, {
         allowNonImage: true,
       });
