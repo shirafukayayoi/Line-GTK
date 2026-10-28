@@ -30,6 +30,8 @@ import { createListener } from "./listener.ts";
 import { createUnsendService } from "./unsend.ts";
 import { createRetainedUnsent } from "./retained_unsent.ts";
 import { createReactions, normalizeReactions } from "./reactions.ts";
+import { createReactionCatalog } from "./reaction_catalog.ts";
+import { emojiKey } from "./reaction_emojis.ts";
 import {
   createConnectionRecovery,
   retireClient,
@@ -346,6 +348,10 @@ const emojiService = createEmojiService({
   directory: mediaDir,
   emit: (key, path) => emitEvent("emoji_ready", { key, path }),
 });
+const reactionCatalog = createReactionCatalog({
+  getClient: () => authDead ? null : client,
+  images: (keys) => emojiService.ensure(keys),
+});
 
 const chatPreviews = createChatPreviews({
   getChats: () => chatCache?.chats ?? [],
@@ -477,6 +483,8 @@ const unsends = createUnsendService({
 });
 
 const reactions = createReactions({
+  resolveEmoji: reactionCatalog.resolve,
+  observeEmoji: (emoji) => emojiService.ensure([emojiKey(emoji)]),
   getClient: () => authDead ? null : client,
   isBlocked: (chat) =>
     contactBlocks.isBlocked(chat) ||
@@ -2022,13 +2030,21 @@ async function handle(req: Json) {
       case "send_scheduled_message":
         ok(id, await commands.sendScheduledMessage(params));
         break;
+      case "list_reaction_emoji_packages":
+        ok(id, await reactionCatalog.list(!!params.force));
+        break;
+      case "list_reaction_emojis":
+        ok(id, {
+          emojis: await reactionCatalog.pack(String(params.productId ?? "")),
+        });
+        break;
       case "set_reaction":
         ok(
           id,
           await reactions.change(
             String(params.chatMid ?? ""),
             String(params.messageId ?? ""),
-            params.kind,
+            params.emoji ?? params.kind,
           ),
         );
         break;

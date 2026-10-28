@@ -1,9 +1,19 @@
 import type { Client } from "@evex/linejs";
 import { conversationMid } from "./messages.ts";
 import { replyMessageId } from "./replies.ts";
+import {
+  type PaidReaction,
+  paidReaction,
+  sendEmojiReaction,
+} from "./reaction_emojis.ts";
 
 type Json = Record<string, unknown>;
-export type Reaction = { userMid: string; kind: number; at: number };
+export type Reaction = {
+  userMid: string;
+  kind: number;
+  at: number;
+  emoji?: PaidReaction;
+};
 type Operation = {
   type?: string | number;
   param1?: string;
@@ -25,6 +35,8 @@ type Runtime = {
     version: number,
   ) => void;
   observeUser: (mid: string) => void;
+  resolveEmoji?: (emoji: PaidReaction) => Promise<PaidReaction>;
+  observeEmoji?: (emoji: PaidReaction) => void;
   now?: () => number;
 };
 const record = (value: unknown): Json =>
@@ -63,10 +75,12 @@ export function normalizeReactions(value: unknown): Reaction[] {
     const mid = raw.fromUserMid ?? raw.userMid;
     if (!user(mid)) continue;
     const type = record(raw.reactionType);
+    const emoji = paidReaction(raw.emoji ?? type.paidReactionType ?? type["2"]);
     const reaction = {
       userMid: mid,
-      kind: kind(raw.kind ?? type.predefinedReactionType),
+      kind: emoji ? 0 : kind(raw.kind ?? type.predefinedReactionType),
       at: millis(raw.atMillis ?? raw.at),
+      ...(emoji ? { emoji } : {}),
     };
     const previous = users.get(mid);
     if (!previous || reaction.at >= previous.at) users.set(mid, reaction);
@@ -156,6 +170,9 @@ export function createReactions(runtime: Runtime) {
       known.set(key, data);
       trim();
       for (const r of data.reactions) runtime.observeUser(r.userMid);
+      for (const r of data.reactions) {
+        if (r.emoji) runtime.observeEmoji?.(r.emoji);
+      }
       return {
         ...message,
         reactions: data.reactions,
@@ -194,6 +211,7 @@ export function createReactions(runtime: Runtime) {
     known.set(key, data);
     trim();
     runtime.observeUser(reaction.userMid);
+    if (reaction.emoji) runtime.observeEmoji?.(reaction.emoji);
     // 全履歴を再描画せず、操作した人の差分だけを画面へ届ける。
     runtime.emit("reaction", {
       accountMid: account,
@@ -221,11 +239,17 @@ export function createReactions(runtime: Runtime) {
       if (!chatId(chat) || !id || !user(mid)) return true;
       if (chat.startsWith("u") && mid !== chat && mid !== account) return true;
       const current = record(payload.curr);
+      const emoji = paidReaction(current.paidReactionType);
       // 新形式を取り消しと誤認しない。nullだけが取り消しを表す。
       const reaction = {
         userMid: mid,
-        kind: payload.curr == null ? -1 : kind(current.predefinedReactionType),
+        kind: payload.curr == null
+          ? -1
+          : emoji
+          ? 0
+          : kind(current.predefinedReactionType),
         at: millis(op.createdTime) || now(),
+        ...(emoji ? { emoji } : {}),
       };
       const rev = /^[0-9]+$/.test(String(op.revision ?? ""))
         ? BigInt(String(op.revision))
@@ -244,8 +268,16 @@ export function createReactions(runtime: Runtime) {
     const key = `${owner}:${chat}:${id}`;
     if (pending.has(key)) return Promise.reject(new Error("reaction_busy"));
     const task = (async () => {
-      const selected = desired === null ? null : kind(desired);
-      if (!active || !chatId(chat) || !replyMessageId(id) || selected === 0) {
+      const requestedEmoji = paidReaction(desired);
+      const selected = desired === null
+        ? null
+        : requestedEmoji
+        ? 0
+        : kind(desired);
+      if (
+        !active || !chatId(chat) || !replyMessageId(id) ||
+        (selected === 0 && !requestedEmoji)
+      ) {
         throw new Error("invalid_reaction");
       }
       const message = await runtime.findMessage(chat, id);
@@ -257,6 +289,14 @@ export function createReactions(runtime: Runtime) {
         runtime.isBlocked(chat) || !message || String(message.id) !== id ||
         !canReact(message, chat, now())
       ) throw new Error("reaction_unavailable");
+      const emoji = requestedEmoji
+        ? await runtime.resolveEmoji?.(requestedEmoji)
+        : undefined;
+      if (requestedEmoji && !emoji) throw new Error("reaction_unavailable");
+      if (
+        runtime.getClient() !== active ||
+        String(active.base.profile?.mid) !== owner
+      ) throw new Error("session_changed");
       const seq = await active.base.getReqseq();
       if (
         runtime.getClient() !== active ||
@@ -278,6 +318,8 @@ export function createReactions(runtime: Runtime) {
         await active.base.talk.cancelReaction({
           cancelReactionRequest: { reqSeq: seq, messageId: BigInt(id) },
         });
+      } else if (emoji) {
+        await sendEmojiReaction(active, seq, id, emoji);
       } else {
         await active.base.talk.react({
           id: BigInt(id),
@@ -294,6 +336,7 @@ export function createReactions(runtime: Runtime) {
           userMid: owner,
           kind: selected ?? -1,
           at: Math.max(now(), before?.reaction.at ?? 0),
+          ...(emoji ? { emoji } : {}),
         });
       }
       return { changed: true };

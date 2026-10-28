@@ -134,6 +134,17 @@ export function createEmojiService(runtime: {
     }
   }
   return {
+    ensure(keys: string[]) {
+      for (const key of keys.slice(0, 500)) {
+        if (
+          !KEY.test(key) || queued.has(key) || queued.size >= 500 ||
+          (failures.get(key) ?? 0) > Date.now()
+        ) continue;
+        queued.add(key);
+        queue.push(key);
+      }
+      pump();
+    },
     observe(messages: Json[]) {
       for (const message of messages) {
         if (message.decryptionFailed || !Array.isArray(message.emojis)) {
