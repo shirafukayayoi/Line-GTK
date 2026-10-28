@@ -29,6 +29,7 @@ import { createContactBlocks } from "./contact_blocks.ts";
 import { createListener } from "./listener.ts";
 import { createUnsendService } from "./unsend.ts";
 import { createRetainedUnsent } from "./retained_unsent.ts";
+import { createReactions, normalizeReactions } from "./reactions.ts";
 import {
   createConnectionRecovery,
   retireClient,
@@ -256,6 +257,7 @@ async function forUiMessages(
     messages = await retainedUnsent.merge(account, chatMid, messages, latest);
   }
   if (chatMid) messages = await chatEvents.merge(chatMid, messages);
+  if (chatMid) messages = reactions.decorate(chatMid, messages);
   messageSenders.observe(messages);
   emojiService.observe(messages);
   const visible = await messageView.forUiMessages(messages);
@@ -474,19 +476,53 @@ const unsends = createUnsendService({
   },
 });
 
+const reactions = createReactions({
+  getClient: () => authDead ? null : client,
+  isBlocked: (chat) =>
+    contactBlocks.isBlocked(chat) ||
+    chatCache?.chats.some((row) => row.mid === chat && row.kind === "bot") ===
+      true,
+  findMessage: async (chat, id) => {
+    const messages = msgCache.get(chat)?.messages ??
+      await loadDiskMessages(chat);
+    const message = messages?.find((message) => String(message.id) === id) ??
+      reactions.message(chat, id);
+    return message ? (await unsends.mask(chat, [message]))[0] : undefined;
+  },
+  emit: emitEvent,
+  observeUser: (mid) => messageSenders.observe([{ from: mid }]),
+  changed: (chat, id, reaction, version) => {
+    const cached = msgCache.get(chat);
+    if (!cached) return;
+    const messages = cached.messages.map((message) => {
+      if (String(message.id) !== id) return message;
+      const all = normalizeReactions(message.reactions).filter((r) =>
+        r.userMid !== reaction.userMid
+      );
+      if (reaction.kind !== -1) all.push(reaction);
+      return { ...message, reactions: all, reactionVersion: version };
+    });
+    msgCache.set(chat, { ...cached, messages });
+    void saveDiskMessages(chat, messages);
+  },
+});
+
 const listener = createListener({
   prepareMessage: async (message) => {
     const [prepared] = await unsends.mask(conversationMid(message), [message]);
     return prepared?.contentType === "UNSENT" ||
         prepared?.unsentRetained === true
       ? null
-      : prepared ?? null;
+      : prepared
+      ? reactions.decorate(conversationMid(prepared), [prepared])[0]
+      : null;
   },
   handleIncomingCall: calls.handleIncomingCall,
   handleCallCancel: calls.handleCallCancel,
   shouldIgnoreMessage: contactBlocks.ignoreMessage,
   getClient: () => client,
   observeMessage: (message) => {
+    reactions.decorate(conversationMid(message), [message]);
     retainedUnsent.observe(undefined, [message]);
     unreadSync.observeMessage(message);
     messageSenders.observe([message]);
@@ -504,6 +540,7 @@ const listener = createListener({
   hydrateLiveMedia,
   upsertChatFromContact,
   handleReadReceipt: (operation) =>
+    reactions.handleOperation(operation) ||
     unsends.handleOperation(operation) ||
     contactBlocks.handleOperation(operation) ||
     unreadSync.handleOperation(operation) ||
@@ -987,12 +1024,19 @@ async function summarizeTalkMessage(
     relatedMessageId?: unknown;
     messageRelationType?: unknown;
     relatedMessageServiceCode?: unknown;
+    reactions?: unknown;
+    updatedTime?: unknown;
   };
   const replyTo = replyToOf(raw);
+  const reactionData = {
+    reactions: normalizeReactions(raw.reactions),
+    reactionUpdatedTime: Number(raw.updatedTime ?? 0),
+  };
   const contentType = normType(raw.contentType);
   const meta = raw.contentMetadata ?? {};
   if (meta[DECRYPTION_FAILED] === "1") {
     return {
+      ...reactionData,
       replyTo,
       id: String(raw.id ?? ""),
       text: "",
@@ -1015,6 +1059,7 @@ async function summarizeTalkMessage(
   });
   if (callHistory) {
     return {
+      ...reactionData,
       replyTo,
       id: String(raw.id ?? ""),
       from: raw.from ?? "",
@@ -1084,6 +1129,7 @@ async function summarizeTalkMessage(
     }
     const flex = null;
     return {
+      ...reactionData,
       replyTo,
       id,
       text: duration
@@ -1201,6 +1247,7 @@ async function summarizeTalkMessage(
   const flex = contentType === "FLEX" ? extractFlex(meta) : null;
 
   return {
+    ...reactionData,
     replyTo,
     id,
     text,
@@ -1258,6 +1305,8 @@ async function summarizeRawMessage(
       else if (contentType !== "NONE") text = `[${contentType}]`;
     }
     return {
+      reactions: normalizeReactions(r.reactions),
+      reactionUpdatedTime: Number(r.updatedTime ?? 0),
       replyTo: replyToOf(r),
       id: String(r.id ?? ""),
       text: callHistory ? "" : text,
@@ -1972,6 +2021,16 @@ async function handle(req: Json) {
     switch (method) {
       case "send_scheduled_message":
         ok(id, await commands.sendScheduledMessage(params));
+        break;
+      case "set_reaction":
+        ok(
+          id,
+          await reactions.change(
+            String(params.chatMid ?? ""),
+            String(params.messageId ?? ""),
+            params.kind,
+          ),
+        );
         break;
       case "unsend_message":
         ok(
