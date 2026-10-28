@@ -362,7 +362,10 @@ pub(super) fn handle_event(state: &AppState, ev: ProtocolEvent) {
             }
         }
         ProtocolEvent::SenderProfile { mid, name } => message_senders::apply(state, mid, name),
-        ProtocolEvent::EmojiReady { key, path } => emojis::ready(state, key, path),
+        ProtocolEvent::EmojiReady { key, path } => {
+            emojis::ready(state, key.clone(), path);
+            reactions::emoji_ready(state, &key);
+        }
         ProtocolEvent::AvatarReady { mid, avatar_path } => {
             if state.self_mid.borrow().as_deref() == Some(mid.as_str()) {
                 *state.self_avatar_path.borrow_mut() = Some(avatar_path.clone());
@@ -622,6 +625,15 @@ pub(super) fn handle_event(state: &AppState, ev: ProtocolEvent) {
             }
             if let Some(Pending::OlderMessages { chat_mid, account }) = pending {
                 history::response(state, id, &chat_mid, &account, ok, &result);
+                return;
+            }
+            if let Some(Pending::ReactionCatalog {
+                account,
+                picker,
+                package,
+            }) = pending
+            {
+                reactions::catalog_response(state, &account, &picker, package, ok, &result);
                 return;
             }
             if let Some(Pending::Reaction {
@@ -887,6 +899,7 @@ pub(super) fn handle_event(state: &AppState, ev: ProtocolEvent) {
                     | Pending::ScheduledSend { .. }
                     | Pending::Unsend { .. }
                     | Pending::Reaction { .. }
+                    | Pending::ReactionCatalog { .. }
                     | Pending::ResumeSync { .. }
                     | Pending::MarkReadOnce { .. }
                     | Pending::ContactBlocks { .. }

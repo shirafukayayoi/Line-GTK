@@ -168,6 +168,64 @@ Deno.test("別アカウントへ切り替えた後は古い保有一覧を使わ
   assertEquals(f.calls.length, 2);
 });
 
+Deno.test("合計件数のない応答でも次ページへ進み、100件を超える保有絵文字を取得する", async () => {
+  const offsets: number[] = [];
+  const rows = Array.from(
+    { length: 101 },
+    (_, i) => ({
+      id: (i + 1).toString(16).padStart(24, "0"),
+      name: "絵文字",
+      latestVersion: 1,
+    }),
+  );
+  const client = {
+    base: {
+      profile: { mid: "u-self" },
+      request: {
+        request: (args: unknown[][]) => {
+          const offset = Number(args[1][2]);
+          offsets.push(offset);
+          return Promise.resolve({
+            productList: rows.slice(offset, offset + 100),
+          });
+        },
+      },
+    },
+  } as unknown as Client;
+  const service = createReactionCatalog({
+    getClient: () => client,
+    images: () => {},
+  });
+  const result = await service.list();
+  assertEquals(result.packages.length, 102);
+  assertEquals(offsets, [0, 100]);
+  assertEquals(result.warning, false);
+});
+
+Deno.test("パッケージ取得中に同じクライアントのアカウントが変わった場合も結果を混ぜない", async () => {
+  const gate = Promise.withResolvers<Response>();
+  const client = {
+    base: {
+      profile: { mid: "u-self" },
+      request: {
+        request: () => Promise.resolve({ productList: [], totalSize: 0 }),
+      },
+    },
+  } as unknown as Client;
+  const service = createReactionCatalog({
+    getClient: () => client,
+    images: () => {},
+    fetch: (() => gate.promise) as typeof fetch,
+  });
+  const pending = service.pack(product);
+  await new Promise((r) => setTimeout(r, 0));
+  client.base.profile!.mid = "u-other";
+  gate.resolve(
+    new Response(JSON.stringify({ productId: product, orders: ["001"] })),
+  );
+  await assertRejects(() => pending);
+});
+
 Deno.test("LINE絵文字の送信成功・通知・取り消しを反映し、保有確認失敗時は送信しない", async () => {
   const sent: unknown[][] = [], events: Record<string, unknown>[] = [];
   const client = {

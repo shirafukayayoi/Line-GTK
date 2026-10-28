@@ -1341,6 +1341,7 @@ pub(super) fn append_link_chips(_state: &AppState, bubble: &gtk::Box, text: &str
 pub(super) fn clear_messages(state: &AppState) {
     reactions::close(state);
     state.reaction_slots.borrow_mut().clear();
+    state.reaction_images.borrow_mut().clear();
     reader_hover::close(state);
     message_search::reset_rows(state);
     state.chat_event_labels.borrow_mut().clear();

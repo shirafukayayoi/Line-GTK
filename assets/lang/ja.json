@@ -582,5 +582,10 @@
   "reaction_people": "リアクションした人（{n}）",
   "reaction_remove": "リアクションを取り消す",
   "reaction_expired": "リアクションの変更は送信から7日以内です",
-  "reaction_failed": "リアクションを変更できませんでした。接続状態と対象メッセージを確認してください"
+  "reaction_failed": "リアクションを変更できませんでした。接続状態と対象メッセージを確認してください",
+  "reaction_line_emoji": "LINE絵文字",
+  "reaction_emoji_back": "リアクションに戻る",
+  "reaction_emoji_refresh": "保有絵文字を更新",
+  "reaction_emoji_failed": "絵文字を取得できませんでした。更新して再試行してください",
+  "reaction_emoji_partial": "保有絵文字をすべて取得できませんでした。更新で再試行できます"
 }

@@ -131,6 +131,17 @@ pub struct LineEmoji {
     pub key: String,
 }
 
+#[derive(Debug, Clone, Deserialize, PartialEq, Serialize)]
+pub struct PaidReaction {
+    #[serde(rename = "productId")]
+    pub product_id: String,
+    #[serde(rename = "emojiId")]
+    pub emoji_id: String,
+    #[serde(rename = "resourceType")]
+    pub resource_type: i32,
+    pub version: u64,
+}
+
 #[derive(Debug, Clone, Deserialize, PartialEq)]
 pub struct ReactionInfo {
     #[serde(rename = "userMid")]
@@ -138,6 +149,8 @@ pub struct ReactionInfo {
     pub kind: i32,
     #[serde(default)]
     pub at: i64,
+    #[serde(default)]
+    pub emoji: Option<PaidReaction>,
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]

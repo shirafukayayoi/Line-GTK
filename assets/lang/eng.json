@@ -582,5 +582,10 @@
   "reaction_people": "People who reacted ({n})",
   "reaction_remove": "Remove my reaction",
   "reaction_expired": "Reactions can be changed within 7 days of sending",
-  "reaction_failed": "Could not change the reaction. Check the connection and message."
+  "reaction_failed": "Could not change the reaction. Check the connection and message.",
+  "reaction_line_emoji": "LINE emoji",
+  "reaction_emoji_back": "Back to reactions",
+  "reaction_emoji_refresh": "Refresh owned emoji",
+  "reaction_emoji_failed": "Could not load emoji. Refresh to try again.",
+  "reaction_emoji_partial": "Some owned emoji could not be loaded. Refresh to try again."
 }

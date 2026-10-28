@@ -77,6 +77,7 @@ pub(super) struct AppState {
     pub message_rows: Rc<RefCell<HashMap<String, gtk::Box>>>,
     pub reaction_slots: Rc<RefCell<HashMap<String, gtk::Box>>>,
     pub reaction_picker: Rc<RefCell<Option<super::reactions::Picker>>>,
+    pub reaction_images: Rc<RefCell<HashMap<String, Vec<glib::WeakRef<gtk::Picture>>>>>,
     pub unsent_ids: Rc<RefCell<HashSet<(String, String)>>>,
     pub chats: Rc<RefCell<Vec<ChatInfo>>>,
     pub chat_avatars: Rc<RefCell<HashMap<String, gtk::Picture>>>,
@@ -196,6 +197,11 @@ pub(super) struct PendingNotif {
 
 #[derive(Debug, Clone)]
 pub(super) enum Pending {
+    ReactionCatalog {
+        account: String,
+        picker: glib::WeakRef<gtk::Popover>,
+        package: Option<String>,
+    },
     Reaction {
         account: String,
         chat_mid: String,

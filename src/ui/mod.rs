@@ -206,6 +206,7 @@ fn build_ui(app: &Application, repo_root: PathBuf, data_dir: PathBuf) -> Result<
         message_rows: Rc::new(RefCell::new(HashMap::new())),
         reaction_slots: Rc::new(RefCell::new(HashMap::new())),
         reaction_picker: Rc::new(RefCell::new(None)),
+        reaction_images: Rc::new(RefCell::new(HashMap::new())),
         unsent_ids: Rc::new(RefCell::new(HashSet::new())),
         chats: Rc::new(RefCell::new(Vec::new())),
         chat_avatars: Rc::new(RefCell::new(HashMap::new())),
