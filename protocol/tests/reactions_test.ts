@@ -23,6 +23,7 @@ function fixture() {
   let blocked = false, fail = false, clock = time;
   let sequence = 0;
   let gate: Promise<number> | undefined;
+  let sendGate: Promise<void> | undefined;
   const client = {
     base: {
       profile: { mid: "u-self" },
@@ -32,7 +33,7 @@ function fixture() {
           calls.push(value);
           return fail
             ? Promise.reject(new Error("offline"))
-            : Promise.resolve();
+            : sendGate ?? Promise.resolve();
         },
         cancelReaction: (value: unknown) => {
           calls.push(value);
@@ -76,6 +77,7 @@ function fixture() {
     fail: () => fail = true,
     clock: (next: number) => clock = next,
     gate: (next: Promise<number>) => gate = next,
+    sendGate: (next: Promise<void>) => sendGate = next,
   };
 }
 
@@ -197,4 +199,31 @@ Deno.test("最新のサーバー情報は古い通知より優先し、期限到
   gate.resolve(1);
   await assertRejects(() => pending);
   assertEquals(f.calls, []);
+});
+
+Deno.test("順序番号を待つ間に本文が取り消されたらリアクションを送らない", async () => {
+  const f = fixture();
+  const gate = Promise.withResolvers<number>();
+  f.gate(gate.promise);
+  const pending = f.service.change("u-peer", "9007199254740993", 2);
+  await new Promise((r) => setTimeout(r, 0));
+  f.message(original({ contentType: "UNSENT" }));
+  gate.resolve(1);
+  await assertRejects(() => pending);
+  assertEquals(f.calls, []);
+});
+
+Deno.test("時刻差があっても通知の順序番号を優先し、遅い成功応答で別端末の新しい操作を戻さない", async () => {
+  const f = fixture();
+  f.op(2, { type: 139, revision: "100", createdTime: time + 5000 });
+  const gate = Promise.withResolvers<void>();
+  f.sendGate(gate.promise);
+  const pending = f.service.change("u-peer", "9007199254740993", 3);
+  while (!f.calls.length) await new Promise((r) => setTimeout(r, 0));
+  f.op(4, { type: 139, revision: "101", createdTime: time + 1000 });
+  gate.resolve();
+  await pending;
+  f.op(2, { type: 139, revision: "100", createdTime: time + 5000 });
+  const messages = f.service.decorate("u-peer", [original()]);
+  assertEquals((messages[0].reactions as Json[]).map((r) => r.kind), [4]);
 });

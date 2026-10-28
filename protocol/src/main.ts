@@ -490,7 +490,7 @@ const reactions = createReactions({
     return message ? (await unsends.mask(chat, [message]))[0] : undefined;
   },
   emit: emitEvent,
-  observeUser: (mid) => messageSenders.observe([{ from: mid }]),
+  observeUser: (mid) => messageSenders.resolve([mid]),
   changed: (chat, id, reaction, version) => {
     const cached = msgCache.get(chat);
     if (!cached) return;

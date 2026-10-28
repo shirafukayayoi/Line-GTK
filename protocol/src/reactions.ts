@@ -172,12 +172,14 @@ export function createReactions(runtime: Runtime) {
     }
     const previous = updates.get(reaction.userMid);
     if (
-      previous && ((revision > 0n && previous.revision >= revision) ||
-        (reaction.at > 0 && previous.reaction.at > reaction.at))
+      previous &&
+      (revision > 0n
+        ? previous.revision >= revision
+        : reaction.at > 0 && previous.reaction.at > reaction.at)
     ) return;
     updates.set(reaction.userMid, {
       reaction,
-      revision,
+      revision: revision || previous?.revision || 0n,
       expires: now() + 600_000,
     });
     const current = known.get(key);
@@ -260,9 +262,18 @@ export function createReactions(runtime: Runtime) {
         runtime.getClient() !== active ||
         String(active.base.profile?.mid) !== owner
       ) throw new Error("session_changed");
-      if (!canReact(message, chat, now()) || runtime.isBlocked(chat)) {
+      const latest = await runtime.findMessage(chat, id);
+      if (
+        runtime.getClient() !== active ||
+        String(active.base.profile?.mid) !== owner
+      ) throw new Error("session_changed");
+      if (
+        !latest || String(latest.id) !== id || !canReact(latest, chat, now()) ||
+        runtime.isBlocked(chat)
+      ) {
         throw new Error("reaction_unavailable");
       }
+      const before = patches.get(`${chat}:${id}`)?.get(owner);
       if (selected === null) {
         await active.base.talk.cancelReaction({
           cancelReactionRequest: { reqSeq: seq, messageId: BigInt(id) },
@@ -276,9 +287,14 @@ export function createReactions(runtime: Runtime) {
       }
       if (
         runtime.getClient() === active &&
-        String(active.base.profile?.mid) === owner
+        String(active.base.profile?.mid) === owner &&
+        patches.get(`${chat}:${id}`)?.get(owner) === before
       ) {
-        apply(chat, id, { userMid: owner, kind: selected ?? -1, at: now() });
+        apply(chat, id, {
+          userMid: owner,
+          kind: selected ?? -1,
+          at: Math.max(now(), before?.reaction.at ?? 0),
+        });
       }
       return { changed: true };
     })();
