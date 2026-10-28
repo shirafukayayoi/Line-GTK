@@ -1170,6 +1170,8 @@ pub fn load_css() {
             border: 1px solid alpha(@accent_bg_color, 0.18);
         }
         .line-bubble-text { font-size: 0.98em; }
+        .line-reactions button { min-width: 0; min-height: 24px; padding: 2px 6px; }
+        .line-reactions flowboxchild { padding: 0; }
         .line-msg-status {
             font-size: 0.78em;
             opacity: 0.65;

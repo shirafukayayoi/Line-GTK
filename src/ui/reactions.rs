@@ -169,23 +169,15 @@ pub(super) fn button(state: &AppState, message: &MessageInfo) -> Option<gtk::But
     Some(button)
 }
 
-pub(super) fn append(state: &AppState, message: &MessageInfo, row: &gtk::Box) {
+pub(super) fn append(state: &AppState, message: &MessageInfo, row: &gtk::Box, content: &gtk::Box) {
     if !eligible(message) {
         return;
     }
     let slot = gtk::Box::builder()
-        .spacing(4)
-        .margin_top(3)
-        .margin_start(8)
-        .margin_end(8)
-        .halign(if message.mine {
-            gtk::Align::End
-        } else {
-            gtk::Align::Start
-        })
+        .valign(gtk::Align::Center)
+        .css_classes(["line-reactions"])
         .build();
-    row.set_orientation(gtk::Orientation::Vertical);
-    row.append(&slot);
+    content.append(&slot);
     state
         .reaction_slots
         .borrow_mut()
@@ -226,7 +218,7 @@ fn refresh_row(state: &AppState, id: &str) {
     }
     let flow = gtk::FlowBox::builder()
         .selection_mode(gtk::SelectionMode::None)
-        .max_children_per_line(6)
+        .max_children_per_line(2)
         .min_children_per_line(1)
         .row_spacing(2)
         .column_spacing(2)

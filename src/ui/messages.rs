@@ -382,21 +382,21 @@ pub(super) fn append_message(state: &AppState, msg: &MessageInfo, live: bool) {
             .halign(gtk::Align::End)
             .hexpand(true)
             .build();
+        let content = gtk::Box::builder()
+            .orientation(gtk::Orientation::Horizontal)
+            .spacing(6)
+            .halign(gtk::Align::End)
+            .build();
         if let Some(reply) = replies::button(msg) {
-            let content = gtk::Box::builder()
-                .orientation(gtk::Orientation::Horizontal)
-                .spacing(6)
-                .halign(gtk::Align::End)
-                .build();
             content.append(&reply);
-            if let Some(button) = reactions::button(state, msg) {
-                content.append(&button);
-            }
-            content.append(&bubble);
-            col.append(&content);
-        } else {
-            col.append(&bubble);
         }
+        if let Some(button) = reactions::button(state, msg) {
+            content.append(&button);
+        }
+        // 自分のリアクションは吹き出しの左横に置き、既読と時刻は下に残す。
+        reactions::append(state, msg, &row, &content);
+        content.append(&bubble);
+        col.append(&content);
 
         let tracks_receipt = !msg.content_type.eq_ignore_ascii_case("CALL");
         let (text, tooltip, read) = if tracks_receipt {
@@ -459,6 +459,8 @@ pub(super) fn append_message(state: &AppState, msg: &MessageInfo, live: bool) {
             .css_classes(["line-msg-time"])
             .build();
         incoming.append(&bubble);
+        // 相手のリアクションは返信・選択ボタンより吹き出しに近い右横に置く。
+        reactions::append(state, msg, &row, &incoming);
         if let Some(reply) = replies::button(msg) {
             incoming.append(&reply);
         }
@@ -470,7 +472,6 @@ pub(super) fn append_message(state: &AppState, msg: &MessageInfo, live: bool) {
     }
 
     row.append(&outer);
-    reactions::append(state, msg, &row);
     if is_pending {
         row.add_css_class("line-msg-pending-row");
         state
