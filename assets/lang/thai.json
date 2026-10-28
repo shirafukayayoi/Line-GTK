@@ -442,5 +442,17 @@
   "time_format": "%-I:%M %p",
   "receipt_readers_title": "Read by ({n})",
   "receipt_reader_unknown": "Name unavailable ({id})",
-  "message_unsent_retained": "Sender unsent this message · Showing the received copy"
+  "message_unsent_retained": "Sender unsent this message · Showing the received copy",
+  "reactions": "รีแอ็กชัน",
+  "reaction_nice": "ถูกใจ",
+  "reaction_love": "รัก",
+  "reaction_fun": "หัวเราะ",
+  "reaction_amazing": "ตกใจ",
+  "reaction_sad": "เศร้า",
+  "reaction_omg": "โกรธ",
+  "reaction_unknown": "รีแอ็กชันที่ยังไม่รองรับ",
+  "reaction_people": "ผู้ที่ส่งรีแอ็กชัน ({n})",
+  "reaction_remove": "ลบรีแอ็กชันของฉัน",
+  "reaction_expired": "เปลี่ยนรีแอ็กชันได้ภายใน 7 วันหลังส่งข้อความ",
+  "reaction_failed": "เปลี่ยนรีแอ็กชันไม่ได้ โปรดตรวจสอบการเชื่อมต่อและข้อความ"
 }

@@ -570,5 +570,17 @@
   "message_search_open": "Search conversation (Ctrl+F)",
   "receipt_readers_title": "Read by ({n})",
   "receipt_reader_unknown": "Name unavailable ({id})",
-  "message_unsent_retained": "Sender unsent this message · Showing the received copy"
+  "message_unsent_retained": "Sender unsent this message · Showing the received copy",
+  "reactions": "Reactions",
+  "reaction_nice": "Like",
+  "reaction_love": "Love",
+  "reaction_fun": "Laugh",
+  "reaction_amazing": "Surprised",
+  "reaction_sad": "Sad",
+  "reaction_omg": "Angry",
+  "reaction_unknown": "Unsupported reaction",
+  "reaction_people": "People who reacted ({n})",
+  "reaction_remove": "Remove my reaction",
+  "reaction_expired": "Reactions can be changed within 7 days of sending",
+  "reaction_failed": "Could not change the reaction. Check the connection and message."
 }

@@ -75,6 +75,8 @@ pub(super) struct AppState {
     pub reply_target: Rc<RefCell<Option<super::replies::ReplyTarget>>>,
     pub reply_messages: Rc<RefCell<HashMap<String, MessageInfo>>>,
     pub message_rows: Rc<RefCell<HashMap<String, gtk::Box>>>,
+    pub reaction_slots: Rc<RefCell<HashMap<String, gtk::Box>>>,
+    pub reaction_picker: Rc<RefCell<Option<super::reactions::Picker>>>,
     pub unsent_ids: Rc<RefCell<HashSet<(String, String)>>>,
     pub chats: Rc<RefCell<Vec<ChatInfo>>>,
     pub chat_avatars: Rc<RefCell<HashMap<String, gtk::Picture>>>,
@@ -194,6 +196,11 @@ pub(super) struct PendingNotif {
 
 #[derive(Debug, Clone)]
 pub(super) enum Pending {
+    Reaction {
+        account: String,
+        chat_mid: String,
+        message_id: String,
+    },
     ScheduledSend {
         reservation_id: u64,
         account: String,

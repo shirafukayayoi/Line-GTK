@@ -570,5 +570,17 @@
   "message_search_open": "トーク内検索（Ctrl＋F）",
   "receipt_readers_title": "既読にした人（{n}人）",
   "receipt_reader_unknown": "名前未取得（{id}）",
-  "message_unsent_retained": "相手が送信を取り消しました（受信済みの内容を表示中）"
+  "message_unsent_retained": "相手が送信を取り消しました（受信済みの内容を表示中）",
+  "reactions": "リアクション",
+  "reaction_nice": "いいね",
+  "reaction_love": "ハート",
+  "reaction_fun": "笑う",
+  "reaction_amazing": "びっくり",
+  "reaction_sad": "悲しい",
+  "reaction_omg": "怒る",
+  "reaction_unknown": "未対応のリアクション",
+  "reaction_people": "リアクションした人（{n}）",
+  "reaction_remove": "リアクションを取り消す",
+  "reaction_expired": "リアクションの変更は送信から7日以内です",
+  "reaction_failed": "リアクションを変更できませんでした。接続状態と対象メッセージを確認してください"
 }

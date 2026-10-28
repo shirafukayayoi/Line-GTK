@@ -24,6 +24,7 @@ mod message_senders;
 mod messages;
 mod notifications;
 mod pinned_chats;
+mod reactions;
 mod read_pause;
 mod reader_hover;
 mod replies;
@@ -203,6 +204,8 @@ fn build_ui(app: &Application, repo_root: PathBuf, data_dir: PathBuf) -> Result<
         reply_target: Rc::new(RefCell::new(None)),
         reply_messages: Rc::new(RefCell::new(HashMap::new())),
         message_rows: Rc::new(RefCell::new(HashMap::new())),
+        reaction_slots: Rc::new(RefCell::new(HashMap::new())),
+        reaction_picker: Rc::new(RefCell::new(None)),
         unsent_ids: Rc::new(RefCell::new(HashSet::new())),
         chats: Rc::new(RefCell::new(Vec::new())),
         chat_avatars: Rc::new(RefCell::new(HashMap::new())),
@@ -322,6 +325,7 @@ fn build_ui(app: &Application, repo_root: PathBuf, data_dir: PathBuf) -> Result<
     reader_hover::wire(&state);
     replies::wire(&state);
     unsend::wire(&state);
+    reactions::wire(&state);
     wire_scroll_pin(&state);
     history::wire(&state);
     wire_notification_actions(&state);
@@ -1061,6 +1065,8 @@ fn send_current(state: &AppState) {
                 MessageInfo {
                     unsent_retained: false,
                     unsent_owner: None,
+                    reactions: Vec::new(),
+                    reaction_version: 0,
                     chat_event: None,
                     emojis: Vec::new(),
                     id: String::new(),

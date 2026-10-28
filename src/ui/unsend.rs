@@ -44,6 +44,8 @@ pub(super) fn masked(state: &AppState, message: &MessageInfo) -> MessageInfo {
             return MessageInfo {
                 unsent_retained: false,
                 unsent_owner: None,
+                reactions: Vec::new(),
+                reaction_version: 0,
                 text: String::new(),
                 content_type: "UNSENT".into(),
                 image_path: None,
@@ -107,7 +109,8 @@ pub(super) fn retained_notice(row: &gtk::Box) {
             .build(),
     );
     fn remove_reply(widget: &gtk::Widget) {
-        if widget.has_css_class("line-reply-button") {
+        if widget.has_css_class("line-reply-button") || widget.has_css_class("line-reaction-button")
+        {
             widget.set_visible(false);
         }
         let mut child = widget.first_child();
@@ -164,6 +167,10 @@ pub(super) fn apply(
     }
     if state.current_chat.borrow().as_deref() != Some(chat_mid) {
         return;
+    }
+    reactions::close(state);
+    if let Some(slot) = state.reaction_slots.borrow_mut().remove(id) {
+        slot.set_visible(false);
     }
     let original = state.reply_messages.borrow().get(id).cloned();
     let needs_row = original

@@ -202,6 +202,14 @@ pub(super) fn append_quote(state: &AppState, bubble: &gtk::Box, quote: &ReplyInf
 
 pub(super) fn menu(message: &MessageInfo) -> gio::Menu {
     let menu = gio::Menu::new();
+    if reactions::eligible(message) {
+        let item = gio::MenuItem::new(Some(&crate::i18n::t("reactions")), None);
+        item.set_action_and_target_value(
+            Some("win.message-reactions"),
+            Some(&message.id.to_variant()),
+        );
+        menu.append_item(&item);
+    }
     if eligible(message) {
         let item = gio::MenuItem::new(Some(&crate::i18n::t("reply")), None);
         item.set_action_and_target_value(Some("win.reply-message"), Some(&message.id.to_variant()));

@@ -26,7 +26,7 @@ pub(super) fn apply_messages(state: &AppState, mut messages: Vec<MessageInfo>) {
     }
     messages = messages
         .iter()
-        .map(|message| unsend::masked(state, message))
+        .map(|message| reactions::updated(state, &unsend::masked(state, message)))
         .collect();
     // 取得中に届いたイベントを、先に開始した履歴の応答で消さない。
     let existing_events: Vec<_> = state
@@ -110,7 +110,7 @@ pub(super) fn apply_messages(state: &AppState, mut messages: Vec<MessageInfo>) {
 
 pub(super) fn append_message(state: &AppState, msg: &MessageInfo, live: bool) {
     message_search::changed(state);
-    let masked = unsend::masked(state, msg);
+    let masked = reactions::updated(state, &unsend::masked(state, msg));
     let msg = &masked;
     if !msg.id.is_empty() && !state.seen_msg_ids.borrow_mut().insert(msg.id.clone()) {
         return;
@@ -389,6 +389,9 @@ pub(super) fn append_message(state: &AppState, msg: &MessageInfo, live: bool) {
                 .halign(gtk::Align::End)
                 .build();
             content.append(&reply);
+            if let Some(button) = reactions::button(state, msg) {
+                content.append(&button);
+            }
             content.append(&bubble);
             col.append(&content);
         } else {
@@ -459,11 +462,15 @@ pub(super) fn append_message(state: &AppState, msg: &MessageInfo, live: bool) {
         if let Some(reply) = replies::button(msg) {
             incoming.append(&reply);
         }
+        if let Some(button) = reactions::button(state, msg) {
+            incoming.append(&button);
+        }
         incoming.append(&time);
         incoming.append(&gtk::Box::builder().hexpand(true).build());
     }
 
     row.append(&outer);
+    reactions::append(state, msg, &row);
     if is_pending {
         row.add_css_class("line-msg-pending-row");
         state
@@ -1094,6 +1101,8 @@ pub(super) fn attach_audio_to_slot(state: &AppState, message_id: &str, path: &st
     let msg = MessageInfo {
         unsent_retained: false,
         unsent_owner: None,
+        reactions: Vec::new(),
+        reaction_version: 0,
         chat_event: None,
         emojis: Vec::new(),
         id: message_id.to_string(),
@@ -1330,6 +1339,8 @@ pub(super) fn append_link_chips(_state: &AppState, bubble: &gtk::Box, text: &str
 }
 
 pub(super) fn clear_messages(state: &AppState) {
+    reactions::close(state);
+    state.reaction_slots.borrow_mut().clear();
     reader_hover::close(state);
     message_search::reset_rows(state);
     state.chat_event_labels.borrow_mut().clear();

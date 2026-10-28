@@ -132,7 +132,20 @@ pub struct LineEmoji {
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
+pub struct ReactionInfo {
+    #[serde(rename = "userMid")]
+    pub user_mid: String,
+    pub kind: i32,
+    #[serde(default)]
+    pub at: i64,
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq)]
 pub struct MessageInfo {
+    #[serde(default)]
+    pub reactions: Vec<ReactionInfo>,
+    #[serde(rename = "reactionVersion", default)]
+    pub reaction_version: u64,
     #[serde(rename = "unsentRetained", default)]
     pub unsent_retained: bool,
     #[serde(rename = "unsentAccountMid", default)]
@@ -186,6 +199,13 @@ pub struct ChatEventInfo {
 
 #[derive(Debug, Clone)]
 pub enum ProtocolEvent {
+    Reaction {
+        account_mid: String,
+        chat_mid: String,
+        message_id: String,
+        reaction: ReactionInfo,
+        version: u64,
+    },
     ChatEvent {
         account_mid: String,
         message: Box<MessageInfo>,

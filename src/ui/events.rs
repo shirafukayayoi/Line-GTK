@@ -18,6 +18,20 @@ pub(super) fn pump_events(state: AppState) {
 
 pub(super) fn handle_event(state: &AppState, ev: ProtocolEvent) {
     match ev {
+        ProtocolEvent::Reaction {
+            account_mid,
+            chat_mid,
+            message_id,
+            reaction,
+            version,
+        } => reactions::apply(
+            state,
+            &account_mid,
+            &chat_mid,
+            &message_id,
+            reaction,
+            version,
+        ),
         ProtocolEvent::MessageUnsent {
             account_mid,
             chat_mid,
@@ -91,6 +105,7 @@ pub(super) fn handle_event(state: &AppState, ev: ProtocolEvent) {
             on_logged_in(state, &result);
         }
         ProtocolEvent::SessionFailed { error } => {
+            reactions::close(state);
             writing_ui::interrupt(state);
             scheduled_replies::interrupt(state);
             *state.session_ready.borrow_mut() = false;
@@ -609,6 +624,21 @@ pub(super) fn handle_event(state: &AppState, ev: ProtocolEvent) {
                 history::response(state, id, &chat_mid, &account, ok, &result);
                 return;
             }
+            if let Some(Pending::Reaction {
+                account,
+                chat_mid,
+                message_id,
+            }) = pending
+            {
+                reactions::response(
+                    state,
+                    &account,
+                    &chat_mid,
+                    &message_id,
+                    ok && result.get("changed").and_then(|v| v.as_bool()) == Some(true),
+                );
+                return;
+            }
             if let Some(Pending::Unsend {
                 account,
                 chat_mid,
@@ -856,6 +886,7 @@ pub(super) fn handle_event(state: &AppState, ev: ProtocolEvent) {
                     Pending::Album { .. }
                     | Pending::ScheduledSend { .. }
                     | Pending::Unsend { .. }
+                    | Pending::Reaction { .. }
                     | Pending::ResumeSync { .. }
                     | Pending::MarkReadOnce { .. }
                     | Pending::ContactBlocks { .. }
@@ -866,6 +897,7 @@ pub(super) fn handle_event(state: &AppState, ev: ProtocolEvent) {
         }
         ProtocolEvent::Error(e) => toast(state, &e),
         ProtocolEvent::Exited(code) => {
+            reactions::close(state);
             reader_hover::close(state);
             writing_ui::interrupt(state);
             scheduled_replies::interrupt(state);
@@ -923,6 +955,7 @@ pub(super) fn recover_sidecar(state: &AppState) {
 }
 
 pub(super) fn on_logged_in(state: &AppState, result: &serde_json::Value) {
+    reactions::close(state);
     reader_hover::close(state);
     scheduled_replies::interrupt(state);
     contact_blocks::reset(state);

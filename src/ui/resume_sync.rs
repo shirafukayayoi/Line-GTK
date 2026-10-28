@@ -360,6 +360,10 @@ fn merged_messages(
 
 pub(super) fn apply_resumed_messages(state: &AppState, incoming: Vec<MessageInfo>) {
     invalidate_history(state);
+    let incoming = incoming
+        .iter()
+        .map(|m| reactions::updated(state, m))
+        .collect();
     let messages = merged_messages(state.reply_messages.borrow().values().cloned(), incoming);
     let stick = *state.stick_bottom.borrow();
     let scroll = state.message_scroll.vadjustment().value();

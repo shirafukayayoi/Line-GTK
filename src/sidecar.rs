@@ -656,6 +656,34 @@ fn read_loop<R: std::io::Read>(
                                 .to_string(),
                         },
                         "listening" => ProtocolEvent::Listening,
+                        "reaction" => {
+                            let field = |key| {
+                                resp.extra
+                                    .get(key)
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or_default()
+                                    .to_string()
+                            };
+                            let Some(reaction) = resp
+                                .extra
+                                .get("reaction")
+                                .cloned()
+                                .and_then(|v| serde_json::from_value(v).ok())
+                            else {
+                                continue;
+                            };
+                            ProtocolEvent::Reaction {
+                                account_mid: field("accountMid"),
+                                chat_mid: field("chatMid"),
+                                message_id: field("messageId"),
+                                reaction,
+                                version: resp
+                                    .extra
+                                    .get("version")
+                                    .and_then(|v| v.as_u64())
+                                    .unwrap_or_default(),
+                            }
+                        }
                         "message_unsent" => {
                             let field = |key| {
                                 resp.extra

@@ -75,4 +75,5 @@ pub(super) fn apply(state: &AppState, mid: String, name: String) {
     replies::refresh(state);
     chat_events::refresh(state);
     reader_hover::refresh(state);
+    reactions::refresh(state);
 }
