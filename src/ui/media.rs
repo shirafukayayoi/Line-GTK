@@ -307,6 +307,30 @@ pub(super) fn open_media_viewer_for(
     suggest_name: &str,
     on_save: Option<ViewerSaveAction>,
 ) {
+    media_viewer(
+        state,
+        parent,
+        path,
+        content_type,
+        suggest_name,
+        on_save,
+        false,
+    );
+}
+
+pub(super) fn open_attachment_preview(state: &AppState, path: &str, name: &str) {
+    media_viewer(state, &state.window, path, "IMAGE", name, None, true);
+}
+
+fn media_viewer(
+    state: &AppState,
+    parent: &impl IsA<gtk::Window>,
+    path: &str,
+    content_type: &str,
+    suggest_name: &str,
+    on_save: Option<ViewerSaveAction>,
+    preview_only: bool,
+) {
     let kind = viewer_kind_for(content_type, path, suggest_name);
     let (def_w, def_h) = match kind {
         ViewerKind::Video => (1100, 720),
@@ -384,7 +408,7 @@ pub(super) fn open_media_viewer_for(
             super::video::append(&body, path, &win);
         }
         ViewerKind::Image => {
-            append_image_viewer(state, &bar, &body, path, &win);
+            append_image_viewer(state, &bar, &body, path, &win, preview_only);
         }
         ViewerKind::Pdf => {
             append_pdf_viewer(&body, path, suggest_name);
@@ -575,6 +599,7 @@ pub(super) fn append_image_viewer(
     body: &gtk::Box,
     path: &str,
     win: &gtk::Window,
+    preview_only: bool,
 ) {
     #[derive(Clone)]
     struct Stroke {
@@ -639,6 +664,7 @@ pub(super) fn append_image_viewer(
         .label(crate::i18n::t("media_draw"))
         .tooltip_text(crate::i18n::t("media_draw"))
         .css_classes(["flat"])
+        .visible(!preview_only)
         .build();
     let undo_btn = gtk::Button::builder()
         .icon_name("edit-undo-symbolic")
@@ -938,6 +964,9 @@ pub(super) fn append_image_viewer(
         let strokes = strokes.clone();
         let src_path = path.to_string();
         send_btn.connect_clicked(move |_| {
+            if preview_only {
+                return;
+            }
             let out = if strokes.borrow().is_empty() {
                 std::path::PathBuf::from(&src_path)
             } else {

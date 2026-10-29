@@ -381,6 +381,7 @@ pub(super) fn refresh(state: &AppState) {
                 .height_request(64)
                 .can_shrink(true)
                 .content_fit(gtk::ContentFit::Contain)
+                .alternative_text(&item.name)
                 .build();
             attach_texture_async(
                 picture.clone(),
@@ -399,7 +400,7 @@ pub(super) fn refresh(state: &AppState) {
             let s = state.clone();
             let path = item.path.to_string_lossy().into_owned();
             let name = item.name.clone();
-            preview.connect_clicked(move |_| open_media_viewer(&s, &path, "IMAGE", &name));
+            preview.connect_clicked(move |_| open_attachment_preview(&s, &path, &name));
             card.append(&preview);
         } else {
             card.append(&gtk::Image::from_icon_name("text-x-generic-symbolic"));
