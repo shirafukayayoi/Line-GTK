@@ -1,4 +1,5 @@
 mod albums;
+mod attachments;
 mod auto_login;
 mod call_history;
 mod call_window;
@@ -201,6 +202,7 @@ fn build_ui(app: &Application, repo_root: PathBuf, data_dir: PathBuf) -> Result<
         msg_load_label: shell.msg_load_label,
         msg_idle: shell.msg_idle,
         current_chat: Rc::new(RefCell::new(None)),
+        attachments: Rc::new(RefCell::new(attachments::State::default())),
         reply_target: Rc::new(RefCell::new(None)),
         reply_messages: Rc::new(RefCell::new(HashMap::new())),
         message_rows: Rc::new(RefCell::new(HashMap::new())),
@@ -317,6 +319,7 @@ fn build_ui(app: &Application, repo_root: PathBuf, data_dir: PathBuf) -> Result<
     pinned_chats::wire(&state);
     scheduled_replies::wire(&state);
     writing_ui::wire(&state);
+    attachments::wire(&state);
     message_search::wire(&state);
     apply_ui_language(&state);
     apply_ui_motion(&state);
@@ -1034,8 +1037,13 @@ fn wire_scroll_pin(state: &AppState) {
 }
 
 fn send_current(state: &AppState) {
+    if attachments::reading(state) {
+        toast(state, &crate::i18n::t("attachment_reading"));
+        return;
+    }
     let text = state.composer.text().to_string();
     if text.trim().is_empty() {
+        attachments::send(state);
         return;
     }
     let Some(chat_mid) = state.current_chat.borrow().clone() else {
@@ -1096,6 +1104,7 @@ fn send_current(state: &AppState) {
             state.composer.set_text("");
             dismiss_new_marker(state);
             pin_messages_to_latest(state);
+            attachments::send(state);
         }
         Err(e) => {
             writing_ui::complete(state, &account, saved_id, false, None, None);
@@ -1160,6 +1169,7 @@ fn apply_ui_language(state: &AppState) {
     read_pause::apply_language(state);
     scheduled_replies::apply_language(state);
     writing_ui::refresh(state);
+    attachments::refresh(state);
     message_search::apply_language(state);
     // 再ログインせず、プレビュー生成側にも選択した言語を反映する。
     if let Err(error) = state.sidecar.request(

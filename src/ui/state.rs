@@ -72,6 +72,7 @@ pub(super) struct AppState {
     pub msg_load_label: gtk::Label,
     pub msg_idle: gtk::Label,
     pub current_chat: Rc<RefCell<Option<String>>>,
+    pub attachments: Rc<RefCell<super::attachments::State>>,
     pub reply_target: Rc<RefCell<Option<super::replies::ReplyTarget>>>,
     pub reply_messages: Rc<RefCell<HashMap<String, MessageInfo>>>,
     pub message_rows: Rc<RefCell<HashMap<String, gtk::Box>>>,

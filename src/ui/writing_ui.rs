@@ -128,6 +128,7 @@ pub(super) fn leave_chat(state: &AppState) -> bool {
     message_search::close(state);
     state.composer.set_text("");
     replies::cancel(state);
+    attachments::hide(state);
     state.writing.borrow_mut().holding = false;
     true
 }
@@ -165,6 +166,7 @@ pub(super) fn enter_chat(state: &AppState, chat_mid: &str) {
     replies::refresh(state);
     state.writing.borrow_mut().holding = false;
     refresh(state);
+    attachments::refresh(state);
 }
 
 pub(super) fn session(state: &AppState, account: &str) {
@@ -194,6 +196,7 @@ pub(super) fn session(state: &AppState, account: &str) {
 }
 
 pub(super) fn interrupt(state: &AppState) {
+    attachments::reset(state);
     flush(state);
     let pending: Vec<_> = state
         .pending

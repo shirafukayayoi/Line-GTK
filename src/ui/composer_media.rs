@@ -413,8 +413,7 @@ pub(super) fn pick_and_send_media(state: &AppState) {
     );
 }
 
-/// Ctrl+V attachment: files (URI list / FileList) or a clipboard image.
-/// Returns true when paste was handled so text paste is suppressed.
+/// 画像・ファイルの貼り付けは送信待ちへ追加し、テキストはGTK標準の貼り付けに任せる。
 pub(super) fn try_paste_clipboard_attachment(state: &AppState) -> bool {
     if state.current_chat.borrow().is_none() {
         return false;
@@ -434,6 +433,9 @@ pub(super) fn try_paste_clipboard_attachment(state: &AppState) -> bool {
         || formats.contain_mime_type("image/tiff");
 
     if has_files {
+        let Some(target) = attachments::capture(state) else {
+            return false;
+        };
         let s = state.clone();
         clipboard.read_value_async(
             gdk::FileList::static_type(),
@@ -447,34 +449,42 @@ pub(super) fn try_paste_clipboard_attachment(state: &AppState) -> bool {
                             if let Some(path) = file.path()
                                 && path.is_file()
                             {
-                                send_local_media_path(&s, path);
+                                attachments::enqueue(&s, &target, path, false);
                                 any = true;
                             }
                         }
                         if !any {
-                            paste_clipboard_uri_list(&s);
+                            paste_clipboard_uri_list(&s, target);
+                        } else {
+                            attachments::finish_paste(&s, &target);
                         }
                     } else {
-                        paste_clipboard_uri_list(&s);
+                        paste_clipboard_uri_list(&s, target);
                     }
                 }
-                Err(_) => paste_clipboard_uri_list(&s),
+                Err(_) => paste_clipboard_uri_list(&s, target),
             },
         );
         return true;
     }
 
     if has_image {
+        let Some(target) = attachments::capture(state) else {
+            return false;
+        };
         let s = state.clone();
         clipboard.read_texture_async(None::<&gio::Cancellable>, move |res| match res {
-            Ok(Some(tex)) => match save_clipboard_texture_png(&s, &tex) {
-                Ok(path) => send_local_media_path(&s, path),
-                Err(e) => toast(
-                    &s,
-                    &crate::i18n::tf("media_send_failed", &[("error", &e.to_string())]),
-                ),
-            },
-            _ => paste_clipboard_image_bytes(&s),
+            Ok(Some(tex)) => {
+                match save_clipboard_texture_png(&s, &tex) {
+                    Ok(path) => attachments::enqueue(&s, &target, path, true),
+                    Err(e) => toast(
+                        &s,
+                        &crate::i18n::tf("attachment_failed", &[("error", &e.to_string())]),
+                    ),
+                }
+                attachments::finish_paste(&s, &target);
+            }
+            _ => paste_clipboard_image_bytes(&s, target),
         });
         return true;
     }
@@ -482,7 +492,7 @@ pub(super) fn try_paste_clipboard_attachment(state: &AppState) -> bool {
     false
 }
 
-pub(super) fn paste_clipboard_uri_list(state: &AppState) {
+fn paste_clipboard_uri_list(state: &AppState, target: attachments::Target) {
     let clipboard = state.composer.clipboard();
     let s = state.clone();
     clipboard.read_async(
@@ -490,6 +500,7 @@ pub(super) fn paste_clipboard_uri_list(state: &AppState) {
         glib::Priority::DEFAULT,
         None::<&gio::Cancellable>,
         move |res| {
+            attachments::finish_paste(&s, &target);
             let Ok((stream, _)) = res else {
                 return;
             };
@@ -508,14 +519,14 @@ pub(super) fn paste_clipboard_uri_list(state: &AppState) {
                 if let Some(path) = file.path()
                     && path.is_file()
                 {
-                    send_local_media_path(&s, path);
+                    attachments::enqueue(&s, &target, path, false);
                 }
             }
         },
     );
 }
 
-pub(super) fn paste_clipboard_image_bytes(state: &AppState) {
+fn paste_clipboard_image_bytes(state: &AppState, target: attachments::Target) {
     let clipboard = state.composer.clipboard();
     let s = state.clone();
     clipboard.read_async(
@@ -523,6 +534,7 @@ pub(super) fn paste_clipboard_image_bytes(state: &AppState) {
         glib::Priority::DEFAULT,
         None::<&gio::Cancellable>,
         move |res| {
+            attachments::finish_paste(&s, &target);
             let Ok((stream, mime)) = res else {
                 return;
             };
@@ -542,7 +554,7 @@ pub(super) fn paste_clipboard_image_bytes(state: &AppState) {
                 "png"
             };
             match write_clipboard_bytes(&s, &bytes, ext) {
-                Ok(path) => send_local_media_path(&s, path),
+                Ok(path) => attachments::enqueue(&s, &target, path, true),
                 Err(e) => toast(
                     &s,
                     &crate::i18n::tf("media_send_failed", &[("error", &e.to_string())]),
@@ -563,7 +575,7 @@ pub(super) fn save_clipboard_texture_png(
         "paste-{}.png",
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_millis())
+            .map(|d| d.as_nanos())
             .unwrap_or(0)
     ));
     tex.save_to_png(&dest)?;
@@ -581,7 +593,7 @@ pub(super) fn write_clipboard_bytes(
         "paste-{}.{}",
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_millis())
+            .map(|d| d.as_nanos())
             .unwrap_or(0),
         ext
     ));
@@ -594,16 +606,20 @@ pub(super) fn send_local_media_path(state: &AppState, path: PathBuf) {
         toast(state, &crate::i18n::t("select_chat_first"));
         return;
     };
+    send_media_to(state, &chat_mid, path);
+}
+
+pub(super) fn send_media_to(state: &AppState, chat_mid: &str, path: PathBuf) -> Option<u64> {
     if !*state.session_ready.borrow() {
         toast(state, &crate::i18n::t("still_restoring"));
-        return;
+        return None;
     }
     if !path.is_file() {
         toast(
             state,
             &crate::i18n::tf("media_send_failed", &[("error", "not a file")]),
         );
-        return;
+        return None;
     }
 
     let o_type = guess_media_o_type(&path);
@@ -619,7 +635,7 @@ pub(super) fn send_local_media_path(state: &AppState, path: PathBuf) {
                 state,
                 &crate::i18n::tf("media_send_failed", &[("error", &e.to_string())]),
             );
-            return;
+            return None;
         }
     };
     let path_str = cached.to_string_lossy().to_string();
@@ -630,7 +646,7 @@ pub(super) fn send_local_media_path(state: &AppState, path: PathBuf) {
         .to_string();
     match state
         .sidecar
-        .send_media(&chat_mid, &path_str, o_type, duration_ms)
+        .send_media(chat_mid, &path_str, o_type, duration_ms)
     {
         Ok(id) => {
             let (content_type, text, image_path, audio_path, file_path) = match o_type {
@@ -666,7 +682,7 @@ pub(super) fn send_local_media_path(state: &AppState, path: PathBuf) {
             begin_optimistic_send(
                 state,
                 id,
-                &chat_mid,
+                chat_mid,
                 MessageInfo {
                     unsent_retained: false,
                     unsent_owner: None,
@@ -677,7 +693,7 @@ pub(super) fn send_local_media_path(state: &AppState, path: PathBuf) {
                     id: String::new(),
                     text,
                     from: String::new(),
-                    to: chat_mid.clone(),
+                    to: chat_mid.to_string(),
                     mine: true,
                     created_time: now_ms(),
                     content_type: content_type.into(),
@@ -692,14 +708,20 @@ pub(super) fn send_local_media_path(state: &AppState, path: PathBuf) {
                     reply_to: None,
                 },
             );
-            show_upload_progress(state, 0.02, &crate::i18n::t("media_uploading"));
-            dismiss_new_marker(state);
-            pin_messages_to_latest(state);
+            if state.current_chat.borrow().as_deref() == Some(chat_mid) {
+                show_upload_progress(state, 0.02, &crate::i18n::t("media_uploading"));
+                dismiss_new_marker(state);
+                pin_messages_to_latest(state);
+            }
+            Some(id)
         }
-        Err(e) => toast(
-            state,
-            &crate::i18n::tf("media_send_failed", &[("error", &e.to_string())]),
-        ),
+        Err(e) => {
+            toast(
+                state,
+                &crate::i18n::tf("media_send_failed", &[("error", &e.to_string())]),
+            );
+            None
+        }
     }
 }
 

@@ -459,5 +459,14 @@
   "reaction_emoji_back": "กลับไปที่รีแอ็กชัน",
   "reaction_emoji_refresh": "รีเฟรชอิโมจิของฉัน",
   "reaction_emoji_failed": "โหลดอิโมจิไม่ได้ โปรดรีเฟรชเพื่อลองอีกครั้ง",
-  "reaction_emoji_partial": "โหลดอิโมจิบางส่วนไม่ได้ โปรดรีเฟรชเพื่อลองอีกครั้ง"
+  "reaction_emoji_partial": "โหลดอิโมจิบางส่วนไม่ได้ โปรดรีเฟรชเพื่อลองอีกครั้ง",
+  "attachment_queue": "ไฟล์แนบรอส่ง ({n})",
+  "attachment_reading": "กำลังอ่านไฟล์แนบจากคลิปบอร์ด…",
+  "attachment_send_hint": "คลิกส่งหรือกด Ctrl+Enter เพื่อส่ง",
+  "attachment_remove": "นำไฟล์แนบออก: {name}",
+  "attachment_clear": "นำไฟล์แนบที่รอส่งออกทั้งหมด",
+  "attachment_preview": "ดูตัวอย่างไฟล์แนบ: {name}",
+  "attachment_failed": "เตรียมไฟล์แนบไม่ได้: {error}",
+  "attachment_limit": "รอส่งไฟล์แนบได้สูงสุด 20 ไฟล์ต่อแชท",
+  "attachment_missing": "ไม่พบไฟล์แนบ"
 }

@@ -587,5 +587,14 @@
   "reaction_emoji_back": "リアクションに戻る",
   "reaction_emoji_refresh": "保有絵文字を更新",
   "reaction_emoji_failed": "絵文字を取得できませんでした。更新して再試行してください",
-  "reaction_emoji_partial": "保有絵文字をすべて取得できませんでした。更新で再試行できます"
+  "reaction_emoji_partial": "保有絵文字をすべて取得できませんでした。更新で再試行できます",
+  "attachment_queue": "送信待ちの添付（{n}件）",
+  "attachment_reading": "クリップボードの添付を読み込み中…",
+  "attachment_send_hint": "「送信」またはCtrl＋Enterで送信します",
+  "attachment_remove": "送信待ちから外す: {name}",
+  "attachment_clear": "送信待ちの添付をすべて外す",
+  "attachment_preview": "添付を確認: {name}",
+  "attachment_failed": "添付を準備できませんでした: {error}",
+  "attachment_limit": "送信待ちの添付は1トークにつき20件までです",
+  "attachment_missing": "添付するファイルが見つかりません"
 }

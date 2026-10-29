@@ -606,6 +606,7 @@ pub(super) fn handle_event(state: &AppState, ev: ProtocolEvent) {
             error,
         } => {
             let pending = state.pending.borrow_mut().remove(&id);
+            attachments::complete(state, id, ok);
             if let Some(Pending::ScheduledSend {
                 reservation_id,
                 account,
@@ -980,6 +981,9 @@ pub(super) fn on_logged_in(state: &AppState, result: &serde_json::Value) {
     hidden_chats::close(state);
     match serde_json::from_value::<Profile>(result.clone()) {
         Ok(profile) => {
+            if state.self_mid.borrow().as_deref() != Some(profile.mid.as_str()) {
+                attachments::reset(state);
+            }
             writing_ui::session(state, &profile.mid);
             auto_login::logged_in(state);
             if state.self_mid.borrow().as_deref() != Some(profile.mid.as_str()) {
@@ -1055,6 +1059,7 @@ pub(super) fn show_shell_restoring(state: &AppState) {
 }
 
 pub(super) fn show_login(state: &AppState, hint: &str) {
+    attachments::reset(state);
     reader_hover::close(state);
     history::reset(state);
     *state.unread_sync.borrow_mut() = unread_sync::UnreadSync::default();

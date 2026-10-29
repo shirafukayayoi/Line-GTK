@@ -587,5 +587,14 @@
   "reaction_emoji_back": "Back to reactions",
   "reaction_emoji_refresh": "Refresh owned emoji",
   "reaction_emoji_failed": "Could not load emoji. Refresh to try again.",
-  "reaction_emoji_partial": "Some owned emoji could not be loaded. Refresh to try again."
+  "reaction_emoji_partial": "Some owned emoji could not be loaded. Refresh to try again.",
+  "attachment_queue": "Attachments to send ({n})",
+  "attachment_reading": "Reading clipboard attachments…",
+  "attachment_send_hint": "Click Send or press Ctrl+Enter to send",
+  "attachment_remove": "Remove attachment: {name}",
+  "attachment_clear": "Remove all queued attachments",
+  "attachment_preview": "Preview attachment: {name}",
+  "attachment_failed": "Could not prepare attachment: {error}",
+  "attachment_limit": "Up to 20 attachments can be queued per chat",
+  "attachment_missing": "The attachment file could not be found"
 }
