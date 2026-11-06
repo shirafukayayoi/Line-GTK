@@ -596,5 +596,12 @@
   "attachment_preview": "添付を確認: {name}",
   "attachment_failed": "添付を準備できませんでした: {error}",
   "attachment_limit": "送信待ちの添付は1トークにつき20件までです",
-  "attachment_missing": "添付するファイルが見つかりません"
+  "attachment_missing": "添付するファイルが見つかりません",
+  "send_key": "送信キー",
+  "send_key_subtitle": "変更はすぐ反映され、次回起動時も維持します",
+  "send_key_ctrl_enter": "Ctrl＋Enterで送信（Enterで改行）",
+  "send_key_enter": "Enterで送信（Shift＋Enterで改行）",
+  "composer_shortcuts_enter": "Enterで送信、Shift＋Enterで改行",
+  "attachment_send_hint_enter": "「送信」またはEnterで送信します",
+  "send_key_save_failed": "送信キーの設定を保存できませんでした: {error}"
 }

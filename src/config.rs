@@ -11,6 +11,8 @@ use std::path::{Path, PathBuf};
 pub struct AppConfig {
     /// 起動時に限り、保存セッションが使えなければキーストアの認証情報でログインする。
     pub startup_auto_login: bool,
+    /// trueならEnterで送信、falseならCtrl＋Enterで送信する。
+    pub send_on_enter: bool,
     pub theme: String,    // system | dark | light
     pub language: String, // en | th | ja
     pub font_scale: f64,  // UI scale 0.60 .. 1.40 (1.0 = 100%)
@@ -77,6 +79,7 @@ impl Default for AppConfig {
     fn default() -> Self {
         Self {
             startup_auto_login: false,
+            send_on_enter: false,
             theme: "system".into(),
             language: "th".into(),
             font_scale: 1.0,
@@ -116,6 +119,16 @@ impl Default for AppConfig {
 }
 
 impl AppConfig {
+    pub fn set_send_on_enter(&mut self, data_dir: &Path, enabled: bool) -> std::io::Result<()> {
+        let previous = self.send_on_enter;
+        self.send_on_enter = enabled;
+        if let Err(error) = self.save_atomic(data_dir) {
+            self.send_on_enter = previous;
+            return Err(error);
+        }
+        Ok(())
+    }
+
     pub fn is_chat_pinned(&self, account: &str, mid: &str) -> bool {
         self.pinned_chats
             .get(account)
@@ -447,6 +460,37 @@ pub fn ensure_private_dir(path: &Path) -> std::io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn send_key_migrates_and_persists_without_changing_other_settings() {
+        let mut config: AppConfig =
+            serde_json::from_str(r#"{"language":"ja","pause_read_receipts":true}"#).unwrap();
+        assert!(!config.send_on_enter);
+        let directory =
+            std::env::temp_dir().join(format!("line-gtk-send-key-{}", std::process::id()));
+        fs::create_dir_all(&directory).unwrap();
+        for enabled in [true, false] {
+            config.set_send_on_enter(&directory, enabled).unwrap();
+            let loaded = AppConfig::load(&directory);
+            assert_eq!(loaded.send_on_enter, enabled);
+            assert_eq!(loaded.language, "ja");
+            assert!(loaded.pause_read_receipts);
+        }
+        fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn send_key_save_failure_keeps_the_previous_binding() {
+        let directory =
+            std::env::temp_dir().join(format!("line-gtk-send-key-failure-{}", std::process::id()));
+        let mut config = AppConfig::default();
+        config.save_atomic(&directory).unwrap();
+        fs::create_dir(directory.join(".settings.json.tmp")).unwrap();
+        assert!(config.set_send_on_enter(&directory, true).is_err());
+        assert!(!config.send_on_enter);
+        assert!(!AppConfig::load(&directory).send_on_enter);
+        fs::remove_dir_all(directory).unwrap();
+    }
 
     #[test]
     fn japanese_font_follows_language_and_preserves_custom_fonts() {

@@ -468,5 +468,12 @@
   "attachment_preview": "ดูตัวอย่างไฟล์แนบ: {name}",
   "attachment_failed": "เตรียมไฟล์แนบไม่ได้: {error}",
   "attachment_limit": "รอส่งไฟล์แนบได้สูงสุด 20 ไฟล์ต่อแชท",
-  "attachment_missing": "ไม่พบไฟล์แนบ"
+  "attachment_missing": "ไม่พบไฟล์แนบ",
+  "send_key": "ปุ่มส่งข้อความ",
+  "send_key_subtitle": "มีผลทันทีและจดจำหลังเปิดแอปใหม่",
+  "send_key_ctrl_enter": "Ctrl+Enter เพื่อส่ง (Enter เพื่อขึ้นบรรทัดใหม่)",
+  "send_key_enter": "Enter เพื่อส่ง (Shift+Enter เพื่อขึ้นบรรทัดใหม่)",
+  "composer_shortcuts_enter": "Enter เพื่อส่ง, Shift+Enter เพื่อขึ้นบรรทัดใหม่",
+  "attachment_send_hint_enter": "คลิกส่งหรือกด Enter เพื่อส่ง",
+  "send_key_save_failed": "บันทึกการตั้งค่าปุ่มส่งไม่ได้: {error}"
 }

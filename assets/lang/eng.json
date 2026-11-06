@@ -596,5 +596,12 @@
   "attachment_preview": "Preview attachment: {name}",
   "attachment_failed": "Could not prepare attachment: {error}",
   "attachment_limit": "Up to 20 attachments can be queued per chat",
-  "attachment_missing": "The attachment file could not be found"
+  "attachment_missing": "The attachment file could not be found",
+  "send_key": "Send key",
+  "send_key_subtitle": "Applies immediately and is remembered after restart",
+  "send_key_ctrl_enter": "Ctrl+Enter to send (Enter for a new line)",
+  "send_key_enter": "Enter to send (Shift+Enter for a new line)",
+  "composer_shortcuts_enter": "Enter to send, Shift+Enter for a new line",
+  "attachment_send_hint_enter": "Click Send or press Enter to send",
+  "send_key_save_failed": "Could not save the send key setting: {error}"
 }

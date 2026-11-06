@@ -356,7 +356,11 @@ pub(super) fn refresh(state: &AppState) {
             .xalign(0.0)
             .hexpand(true)
             .css_classes(["caption", "heading"])
-            .tooltip_text(crate::i18n::t("attachment_send_hint"))
+            .tooltip_text(crate::i18n::t(if state.config.borrow().send_on_enter {
+                "attachment_send_hint_enter"
+            } else {
+                "attachment_send_hint"
+            }))
             .build(),
     );
     if !items.is_empty() {

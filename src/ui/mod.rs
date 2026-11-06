@@ -1180,7 +1180,9 @@ fn apply_ui_language(state: &AppState) {
     }
     replies::refresh(state);
     chat_events::refresh(state);
-    state.composer.apply_language();
+    state
+        .composer
+        .apply_language(state.config.borrow().send_on_enter);
     history::refresh(state);
     chat_filter::apply_language(state);
     state.album_btn.set_label(&crate::i18n::t("albums"));
@@ -1367,7 +1369,11 @@ fn wire_drop_attachments(state: &AppState) {
 
 fn wire_actions(state: &AppState) {
     let s = state.clone();
-    state.composer.connect_send(move || send_current(&s));
+    let config = state.config.clone();
+    state.composer.connect_send(
+        move || config.borrow().send_on_enter,
+        move || send_current(&s),
+    );
 
     let s = state.clone();
     state.send_btn.connect_clicked(move |_| send_current(&s));
@@ -1471,6 +1477,13 @@ fn wire_actions(state: &AppState) {
             sidecar: s.sidecar.clone(),
             data_dir: s.data_dir.clone(),
             config: s.config.clone(),
+            on_send_key: {
+                let s2 = s.clone();
+                Rc::new(move || {
+                    s2.composer.apply_language(s2.config.borrow().send_on_enter);
+                    attachments::refresh(&s2);
+                })
+            },
             on_auto_login: {
                 let s2 = s.clone();
                 Rc::new(move |parent| auto_login::open_settings(&s2, parent))

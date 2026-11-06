@@ -7,6 +7,7 @@ pub(super) struct Composer {
     pub container: gtk::Box,
     placeholder: gtk::Label,
     emoji: gtk::Button,
+    preediting: std::rc::Rc<std::cell::Cell<bool>>,
 }
 
 impl std::ops::Deref for Composer {
@@ -60,8 +61,9 @@ impl Composer {
             }
         });
         let weak = placeholder.downgrade();
+        let active = preediting.clone();
         view.connect_preedit_changed(move |view, text| {
-            preediting.set(!text.is_empty());
+            active.set(!text.is_empty());
             if let Some(label) = weak.upgrade() {
                 label.set_visible(view.buffer().char_count() == 0 && text.is_empty());
             }
@@ -90,6 +92,7 @@ impl Composer {
             container,
             placeholder,
             emoji,
+            preediting,
         }
     }
 
@@ -102,51 +105,108 @@ impl Composer {
         self.view.buffer().set_text(text);
     }
 
-    pub fn apply_language(&self) {
+    pub fn apply_language(&self, send_on_enter: bool) {
         let label = crate::i18n::t("type_message");
         self.placeholder.set_label(&label);
         self.view
             .update_property(&[gtk::accessible::Property::Label(&label)]);
         self.view
-            .set_tooltip_text(Some(&crate::i18n::t("composer_shortcuts")));
+            .set_tooltip_text(Some(&crate::i18n::t(if send_on_enter {
+                "composer_shortcuts_enter"
+            } else {
+                "composer_shortcuts"
+            })));
         self.emoji
             .set_tooltip_text(Some(&crate::i18n::t("insert_emoji")));
     }
 
-    pub fn connect_send(&self, send: impl Fn() + 'static) {
+    pub fn connect_send(
+        &self,
+        send_on_enter: impl Fn() -> bool + 'static,
+        send: impl Fn() + 'static,
+    ) {
         let keys = gtk::EventControllerKey::new();
         keys.set_propagation_phase(gtk::PropagationPhase::Capture);
         let weak = self.view.downgrade();
+        let preediting = self.preediting.clone();
         keys.connect_key_pressed(move |controller, key, _, modifiers| {
-            if !matches!(
-                key,
-                gtk::gdk::Key::Return | gtk::gdk::Key::KP_Enter | gtk::gdk::Key::ISO_Enter
-            ) {
+            if !is_send_key(key, modifiers, send_on_enter()) {
                 return glib::Propagation::Proceed;
             }
             let Some(view) = weak.upgrade() else {
                 return glib::Propagation::Proceed;
             };
-            // 個人用の操作: EnterはGTK標準の改行、Ctrl＋Enterだけを送信にする。
-            if !modifiers.contains(gtk::gdk::ModifierType::CONTROL_MASK)
-                || modifiers.intersects(
-                    gtk::gdk::ModifierType::SHIFT_MASK
-                        | gtk::gdk::ModifierType::ALT_MASK
-                        | gtk::gdk::ModifierType::SUPER_MASK,
-                )
-            {
-                return glib::Propagation::Proceed;
-            }
-            // 変換の確定を優先し、IMEが処理したCtrl＋Enterでは送信しない。
+            // IMEの確定を優先する。確定でpreeditが消えても同じキーで送信しない。
+            let was_preediting = preediting.get();
             if controller
                 .current_event()
                 .is_some_and(|event| view.im_context_filter_keypress(event))
             {
                 return glib::Propagation::Stop;
             }
+            if was_preediting || preediting.get() {
+                return glib::Propagation::Proceed;
+            }
             send();
             glib::Propagation::Stop
         });
         self.view.add_controller(keys);
+    }
+}
+
+fn is_send_key(key: gtk::gdk::Key, modifiers: gtk::gdk::ModifierType, send_on_enter: bool) -> bool {
+    use gtk::gdk::{Key, ModifierType as Mods};
+    if !matches!(key, Key::Return | Key::KP_Enter | Key::ISO_Enter) {
+        return false;
+    }
+    let shortcut = modifiers
+        & (Mods::CONTROL_MASK
+            | Mods::SHIFT_MASK
+            | Mods::ALT_MASK
+            | Mods::SUPER_MASK
+            | Mods::HYPER_MASK
+            | Mods::META_MASK);
+    if send_on_enter {
+        shortcut.is_empty()
+    } else {
+        shortcut == Mods::CONTROL_MASK
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use gtk::gdk::{Key, ModifierType as Mods};
+
+    #[test]
+    fn only_the_selected_enter_combination_sends_even_with_caps_lock() {
+        let modifiers = [
+            Mods::CONTROL_MASK,
+            Mods::SHIFT_MASK,
+            Mods::ALT_MASK,
+            Mods::SUPER_MASK,
+            Mods::HYPER_MASK,
+            Mods::META_MASK,
+        ];
+        for bits in 0..64 {
+            let combination = modifiers
+                .iter()
+                .enumerate()
+                .fold(Mods::empty(), |acc, (i, flag)| {
+                    if bits & (1 << i) != 0 {
+                        acc | *flag
+                    } else {
+                        acc
+                    }
+                });
+            for lock in [Mods::empty(), Mods::LOCK_MASK] {
+                for key in [Key::Return, Key::KP_Enter, Key::ISO_Enter] {
+                    assert_eq!(is_send_key(key, combination | lock, true), bits == 0);
+                    assert_eq!(is_send_key(key, combination | lock, false), bits == 1);
+                }
+                assert!(!is_send_key(Key::a, combination | lock, true));
+                assert!(!is_send_key(Key::a, combination | lock, false));
+            }
+        }
     }
 }

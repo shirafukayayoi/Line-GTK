@@ -13,6 +13,7 @@ pub struct SettingsDeps {
     pub sidecar: Rc<Sidecar>,
     pub data_dir: PathBuf,
     pub config: Rc<RefCell<AppConfig>>,
+    pub on_send_key: Rc<dyn Fn()>,
     pub on_auto_login: Rc<dyn Fn(&gtk::Window)>,
     pub on_logout: Rc<dyn Fn()>,
     pub on_lang: Rc<dyn Fn()>,
@@ -377,6 +378,38 @@ pub fn open_settings(parent: &impl IsA<gtk::Window>, deps: SettingsDeps) {
         .title(i18n::t("features_chat"))
         .description(i18n::t("features_chat_desc"))
         .build();
+    let send_key = libadwaita::ComboRow::builder()
+        .title(i18n::t("send_key"))
+        .subtitle(i18n::t("send_key_subtitle"))
+        .model(&gtk::StringList::new(&[
+            &i18n::t("send_key_ctrl_enter"),
+            &i18n::t("send_key_enter"),
+        ]))
+        .selected(u32::from(deps.config.borrow().send_on_enter))
+        .build();
+    {
+        let config = deps.config.clone();
+        let directory = deps.data_dir.clone();
+        let changed = deps.on_send_key.clone();
+        let toast = deps.toast.clone();
+        send_key.connect_selected_notify(move |row| {
+            let enabled = row.selected() == 1;
+            if config.borrow().send_on_enter == enabled {
+                return;
+            }
+            let result = config.borrow_mut().set_send_on_enter(&directory, enabled);
+            if let Err(error) = result {
+                row.set_selected(u32::from(config.borrow().send_on_enter));
+                toast(&i18n::tf(
+                    "send_key_save_failed",
+                    &[("error", &error.to_string())],
+                ));
+            } else {
+                changed();
+            }
+        });
+    }
+    chat_grp.add(&send_key);
     let hidden_row = libadwaita::ActionRow::builder()
         .title(i18n::t("hidden_chats"))
         .subtitle(i18n::t("hidden_chats_subtitle"))
