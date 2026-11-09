@@ -13,6 +13,12 @@ pub struct AppConfig {
     pub startup_auto_login: bool,
     /// trueならEnterで送信、falseならCtrl＋Enterで送信する。
     pub send_on_enter: bool,
+    /// ファイル選択とドロップも、送信前に添付キューで確認する。
+    pub queue_selected_attachments: bool,
+    /// 通知にメッセージ本文と写真・スタンプの内容を含める。
+    pub notification_preview: bool,
+    /// スタンプの拡大プレビュー。0は非表示、120・160・220から選ぶ。
+    pub sticker_preview_size: i32,
     pub theme: String,    // system | dark | light
     pub language: String, // en | th | ja
     pub font_scale: f64,  // UI scale 0.60 .. 1.40 (1.0 = 100%)
@@ -80,6 +86,9 @@ impl Default for AppConfig {
         Self {
             startup_auto_login: false,
             send_on_enter: false,
+            queue_selected_attachments: false,
+            notification_preview: true,
+            sticker_preview_size: 160,
             theme: "system".into(),
             language: "th".into(),
             font_scale: 1.0,
@@ -118,7 +127,48 @@ impl Default for AppConfig {
     }
 }
 
+#[derive(Clone, Copy)]
+pub enum ChatPreference {
+    QueueAttachments(bool),
+    NotificationPreview(bool),
+    StickerPreviewSize(i32),
+}
+
 impl AppConfig {
+    pub fn set_chat_preference(
+        &mut self,
+        data_dir: &Path,
+        preference: ChatPreference,
+    ) -> std::io::Result<()> {
+        let previous = (
+            self.queue_selected_attachments,
+            self.notification_preview,
+            self.sticker_preview_size,
+        );
+        match preference {
+            ChatPreference::QueueAttachments(value) => self.queue_selected_attachments = value,
+            ChatPreference::NotificationPreview(value) => self.notification_preview = value,
+            ChatPreference::StickerPreviewSize(value) => {
+                if !matches!(value, 0 | 120 | 160 | 220) {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        "プレビューのサイズが不正です",
+                    ));
+                }
+                self.sticker_preview_size = value;
+            }
+        }
+        if let Err(error) = self.save_atomic(data_dir) {
+            (
+                self.queue_selected_attachments,
+                self.notification_preview,
+                self.sticker_preview_size,
+            ) = previous;
+            return Err(error);
+        }
+        Ok(())
+    }
+
     pub fn set_send_on_enter(&mut self, data_dir: &Path, enabled: bool) -> std::io::Result<()> {
         let previous = self.send_on_enter;
         self.send_on_enter = enabled;
@@ -342,6 +392,9 @@ impl AppConfig {
     }
 
     fn normalize(&mut self) {
+        if !matches!(self.sticker_preview_size, 0 | 120 | 160 | 220) {
+            self.sticker_preview_size = 160;
+        }
         if !matches!(self.theme.as_str(), "system" | "dark" | "light") {
             self.theme = "system".into();
         }
@@ -460,6 +513,88 @@ pub fn ensure_private_dir(path: &Path) -> std::io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn additional_chat_preferences_migrate_and_survive_restart() {
+        let mut config: AppConfig =
+            serde_json::from_str(r#"{"language":"ja","send_on_enter":true}"#).unwrap();
+        assert_eq!(
+            (
+                config.queue_selected_attachments,
+                config.notification_preview,
+                config.sticker_preview_size
+            ),
+            (false, true, 160)
+        );
+        let directory =
+            std::env::temp_dir().join(format!("line-gtk-extra-options-{}", std::process::id()));
+        config
+            .set_chat_preference(&directory, ChatPreference::QueueAttachments(true))
+            .unwrap();
+        config
+            .set_chat_preference(&directory, ChatPreference::NotificationPreview(false))
+            .unwrap();
+        config
+            .set_chat_preference(&directory, ChatPreference::StickerPreviewSize(220))
+            .unwrap();
+        let loaded = AppConfig::load(&directory);
+        assert_eq!(
+            (
+                loaded.queue_selected_attachments,
+                loaded.notification_preview,
+                loaded.sticker_preview_size
+            ),
+            (true, false, 220)
+        );
+        assert!(loaded.send_on_enter);
+        assert_eq!(loaded.language, "ja");
+        assert!(
+            config
+                .set_chat_preference(&directory, ChatPreference::StickerPreviewSize(-1))
+                .is_err()
+        );
+        assert_eq!(config.sticker_preview_size, 220);
+        fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn additional_chat_preferences_roll_back_when_saving_fails() {
+        let directory = std::env::temp_dir().join(format!(
+            "line-gtk-extra-options-failure-{}",
+            std::process::id()
+        ));
+        let mut config = AppConfig::default();
+        config.save_atomic(&directory).unwrap();
+        fs::create_dir(directory.join(".settings.json.tmp")).unwrap();
+        for preference in [
+            ChatPreference::QueueAttachments(true),
+            ChatPreference::NotificationPreview(false),
+            ChatPreference::StickerPreviewSize(0),
+        ] {
+            assert!(config.set_chat_preference(&directory, preference).is_err());
+            assert_eq!(
+                (
+                    config.queue_selected_attachments,
+                    config.notification_preview,
+                    config.sticker_preview_size
+                ),
+                (false, true, 160)
+            );
+        }
+        fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn invalid_sticker_preview_sizes_restore_the_normal_size() {
+        for size in [-1, 1, 9999] {
+            let mut config = AppConfig {
+                sticker_preview_size: size,
+                ..AppConfig::default()
+            };
+            config.normalize();
+            assert_eq!(config.sticker_preview_size, 160);
+        }
+    }
 
     #[test]
     fn send_key_migrates_and_persists_without_changing_other_settings() {

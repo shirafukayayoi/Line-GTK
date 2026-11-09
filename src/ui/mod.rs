@@ -1325,13 +1325,16 @@ fn wire_drop_attachments(state: &AppState) {
     ]);
     let s = state.clone();
     drop.connect_drop(move |_, value, _x, _y| {
+        let Some(target) = attachments::target(&s) else {
+            return false;
+        };
         if let Ok(list) = value.get::<gdk::FileList>() {
             let mut any = false;
             for file in list.files() {
                 if let Some(path) = file.path()
                     && path.is_file()
                 {
-                    send_local_media_path(&s, path);
+                    attachments::selected(&s, &target, path, false);
                     any = true;
                 }
             }
@@ -1341,7 +1344,7 @@ fn wire_drop_attachments(state: &AppState) {
             if let Some(path) = file.path()
                 && path.is_file()
             {
-                send_local_media_path(&s, path);
+                attachments::selected(&s, &target, path, false);
                 return true;
             }
             return false;
@@ -1349,7 +1352,7 @@ fn wire_drop_attachments(state: &AppState) {
         if let Ok(tex) = value.get::<gdk::Texture>() {
             match save_clipboard_texture_png(&s, &tex) {
                 Ok(path) => {
-                    send_local_media_path(&s, path);
+                    attachments::selected(&s, &target, path, true);
                     true
                 }
                 Err(e) => {
@@ -1483,6 +1486,10 @@ fn wire_actions(state: &AppState) {
                     s2.composer.apply_language(s2.config.borrow().send_on_enter);
                     attachments::refresh(&s2);
                 })
+            },
+            on_notification_preview: {
+                let s2 = s.clone();
+                Rc::new(move || notifications::refresh_previews(&s2))
             },
             on_auto_login: {
                 let s2 = s.clone();

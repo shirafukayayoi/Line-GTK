@@ -1,4 +1,4 @@
-use crate::config::{AppConfig, apply_animations, apply_font, apply_theme};
+use crate::config::{AppConfig, ChatPreference, apply_animations, apply_font, apply_theme};
 use crate::i18n;
 use crate::sidecar::Sidecar;
 use gtk::gio;
@@ -14,6 +14,7 @@ pub struct SettingsDeps {
     pub data_dir: PathBuf,
     pub config: Rc<RefCell<AppConfig>>,
     pub on_send_key: Rc<dyn Fn()>,
+    pub on_notification_preview: Rc<dyn Fn()>,
     pub on_auto_login: Rc<dyn Fn(&gtk::Window)>,
     pub on_logout: Rc<dyn Fn()>,
     pub on_lang: Rc<dyn Fn()>,
@@ -410,6 +411,68 @@ pub fn open_settings(parent: &impl IsA<gtk::Window>, deps: SettingsDeps) {
         });
     }
     chat_grp.add(&send_key);
+    let queue_row = libadwaita::SwitchRow::builder()
+        .title(i18n::t("queue_selected_attachments"))
+        .subtitle(i18n::t("queue_selected_attachments_subtitle"))
+        .active(deps.config.borrow().queue_selected_attachments)
+        .build();
+    {
+        let config = deps.config.clone();
+        let directory = deps.data_dir.clone();
+        let toast = deps.toast.clone();
+        queue_row.connect_active_notify(move |row| {
+            let value = row.is_active();
+            if config.borrow().queue_selected_attachments == value {
+                return;
+            }
+            let result = config
+                .borrow_mut()
+                .set_chat_preference(&directory, ChatPreference::QueueAttachments(value));
+            if let Err(error) = result {
+                row.set_active(config.borrow().queue_selected_attachments);
+                toast(&i18n::tf(
+                    "chat_preferences_save_failed",
+                    &[("error", &error.to_string())],
+                ));
+            }
+        });
+    }
+    chat_grp.add(&queue_row);
+    let preview_row = libadwaita::ComboRow::builder()
+        .title(i18n::t("sticker_preview_size"))
+        .subtitle(i18n::t("sticker_preview_size_subtitle"))
+        .model(&gtk::StringList::new(&[
+            &i18n::t("sticker_preview_off"),
+            &i18n::t("sticker_preview_small"),
+            &i18n::t("sticker_preview_normal"),
+            &i18n::t("sticker_preview_large"),
+        ]))
+        .selected(preview_index(deps.config.borrow().sticker_preview_size))
+        .build();
+    {
+        let config = deps.config.clone();
+        let directory = deps.data_dir.clone();
+        let toast = deps.toast.clone();
+        preview_row.connect_selected_notify(move |row| {
+            let Some(value) = [0, 120, 160, 220].get(row.selected() as usize).copied() else {
+                return;
+            };
+            if config.borrow().sticker_preview_size == value {
+                return;
+            }
+            let result = config
+                .borrow_mut()
+                .set_chat_preference(&directory, ChatPreference::StickerPreviewSize(value));
+            if let Err(error) = result {
+                row.set_selected(preview_index(config.borrow().sticker_preview_size));
+                toast(&i18n::tf(
+                    "chat_preferences_save_failed",
+                    &[("error", &error.to_string())],
+                ));
+            }
+        });
+    }
+    chat_grp.add(&preview_row);
     let hidden_row = libadwaita::ActionRow::builder()
         .title(i18n::t("hidden_chats"))
         .subtitle(i18n::t("hidden_chats_subtitle"))
@@ -454,6 +517,36 @@ pub fn open_settings(parent: &impl IsA<gtk::Window>, deps: SettingsDeps) {
         });
     }
     chat_grp.add(&notif_row);
+    let notif_preview = libadwaita::SwitchRow::builder()
+        .title(i18n::t("notification_preview"))
+        .subtitle(i18n::t("notification_preview_subtitle"))
+        .active(deps.config.borrow().notification_preview)
+        .build();
+    {
+        let config = deps.config.clone();
+        let directory = deps.data_dir.clone();
+        let changed = deps.on_notification_preview.clone();
+        let toast = deps.toast.clone();
+        notif_preview.connect_active_notify(move |row| {
+            let value = row.is_active();
+            if config.borrow().notification_preview == value {
+                return;
+            }
+            let result = config
+                .borrow_mut()
+                .set_chat_preference(&directory, ChatPreference::NotificationPreview(value));
+            if let Err(error) = result {
+                row.set_active(config.borrow().notification_preview);
+                toast(&i18n::tf(
+                    "chat_preferences_save_failed",
+                    &[("error", &error.to_string())],
+                ));
+            } else {
+                changed();
+            }
+        });
+    }
+    chat_grp.add(&notif_preview);
 
     let sound_row = libadwaita::SwitchRow::builder()
         .title(i18n::t("notification_sound"))
@@ -1127,4 +1220,13 @@ pub fn open_settings(parent: &impl IsA<gtk::Window>, deps: SettingsDeps) {
     win.add(&account);
 
     win.present();
+}
+
+fn preview_index(size: i32) -> u32 {
+    match size {
+        0 => 0,
+        120 => 1,
+        220 => 3,
+        _ => 2,
+    }
 }

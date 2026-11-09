@@ -64,7 +64,7 @@
   "font_family_set": "Font set to {name}",
   "font_family_default": "Using default system font",
   "features_chat": "Chat",
-  "features_chat_desc": "Read receipts, mark-as-read, and alerts",
+  "features_chat_desc": "Sending, previews, notifications and read receipts",
   "notifications": "Desktop notifications",
   "notifications_subtitle": "Alert when a message arrives outside the focused chat",
   "read_receipts_pause": "Pause read receipts",
@@ -603,5 +603,17 @@
   "send_key_enter": "Enter to send (Shift+Enter for a new line)",
   "composer_shortcuts_enter": "Enter to send, Shift+Enter for a new line",
   "attachment_send_hint_enter": "Click Send or press Enter to send",
-  "send_key_save_failed": "Could not save the send key setting: {error}"
+  "send_key_save_failed": "Could not save the send key setting: {error}",
+  "queue_selected_attachments": "Review attachments before sending",
+  "queue_selected_attachments_subtitle": "Queue attachments selected or dropped into the chat. Pasted images and files are always queued",
+  "notification_preview": "Show notification text and images",
+  "notification_preview_subtitle": "Include message text, photos and stickers. Sender and chat names remain visible when off",
+  "notification_hidden_body": "You have a new message",
+  "sticker_preview_size": "Sticker hover preview",
+  "sticker_preview_size_subtitle": "Enlarged preview when hovering over a sticker",
+  "sticker_preview_off": "Hidden",
+  "sticker_preview_small": "Small",
+  "sticker_preview_normal": "Normal",
+  "sticker_preview_large": "Large",
+  "chat_preferences_save_failed": "Could not save settings: {error}"
 }

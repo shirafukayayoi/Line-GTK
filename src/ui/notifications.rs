@@ -102,10 +102,19 @@ fn pending_for_delivery(state: &AppState, id: &str) -> Option<PendingNotif> {
 
 fn wait_for_details(state: &AppState, meta: &PendingNotif) -> bool {
     meta.created.elapsed() < Duration::from_millis(1200)
-        && ((meta.sticker && meta.image_path.is_none())
+        && ((state.config.borrow().notification_preview
+            && meta.sticker
+            && meta.image_path.is_none())
             || meta.sender_mid.as_deref().is_some_and(|mid| {
                 !mid.is_empty() && message_senders::known_name(state, mid).is_none()
             }))
+}
+
+pub(super) fn refresh_previews(state: &AppState) {
+    let ids: Vec<_> = state.notif_pending.borrow().keys().cloned().collect();
+    for id in ids {
+        refresh_pending(state, &id);
+    }
 }
 
 pub(super) fn refresh_notification_media(state: &AppState, message_id: &str, image_path: &str) {
@@ -148,7 +157,8 @@ fn refresh_pending(state: &AppState, message_id: &str) {
 }
 
 fn deliver(state: &AppState, message_id: &str, meta: PendingNotif) {
-    let preview = if meta.sticker {
+    let show_preview = state.config.borrow().notification_preview;
+    let preview = if show_preview && meta.sticker {
         meta.image_path.as_deref().and_then(|path| {
             crate::desktop_notify::sticker_preview(
                 Path::new(path),
@@ -158,7 +168,9 @@ fn deliver(state: &AppState, message_id: &str, meta: PendingNotif) {
     } else {
         None
     };
-    let image_path = if meta.sticker {
+    let image_path = if !show_preview {
+        None
+    } else if meta.sticker {
         preview.as_ref().and_then(|p| p.to_str())
     } else {
         meta.image_path.as_deref()
@@ -176,11 +188,16 @@ fn deliver(state: &AppState, message_id: &str, meta: PendingNotif) {
     } else {
         meta.title.clone()
     };
+    let hidden_body = crate::i18n::t("notification_hidden_body");
     let ticket = send_desktop_notification(
         state,
         ChatNotification {
             title: &title,
-            body: &meta.body,
+            body: if show_preview {
+                &meta.body
+            } else {
+                &hidden_body
+            },
             avatar_path: meta.avatar_path.as_deref(),
             image_path,
             chat_mid: &meta.chat_mid,

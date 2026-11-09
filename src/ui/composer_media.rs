@@ -205,7 +205,12 @@ pub(super) fn fill_sticker_popover(state: &AppState, result: &serde_json::Value)
                 attach_texture_async(pic.clone(), path, 96);
             }
             btn.set_child(Some(&pic));
-            hover_preview.wire(&btn, path.clone(), display_name.clone());
+            hover_preview.wire(
+                &btn,
+                path.clone(),
+                display_name.clone(),
+                state.config.clone(),
+            );
 
             let s = state.clone();
             let pop = state.sticker_popover.clone();
@@ -393,6 +398,9 @@ pub(super) fn pick_and_send_media(state: &AppState) {
         .default_filter(&filter_all)
         .build();
 
+    let Some(target) = attachments::target(state) else {
+        return;
+    };
     let s = state.clone();
     dialog.open(
         Some(&state.window),
@@ -408,7 +416,7 @@ pub(super) fn pick_and_send_media(state: &AppState) {
                 );
                 return;
             };
-            send_local_media_path(&s, path);
+            attachments::selected(&s, &target, path, false);
         },
     );
 }
@@ -599,14 +607,6 @@ pub(super) fn write_clipboard_bytes(
     ));
     std::fs::write(&dest, bytes)?;
     Ok(dest)
-}
-
-pub(super) fn send_local_media_path(state: &AppState, path: PathBuf) {
-    let Some(chat_mid) = state.current_chat.borrow().clone() else {
-        toast(state, &crate::i18n::t("select_chat_first"));
-        return;
-    };
-    send_media_to(state, &chat_mid, path);
 }
 
 pub(super) fn send_media_to(state: &AppState, chat_mid: &str, path: PathBuf) -> Option<u64> {

@@ -30,14 +30,18 @@ pub(super) struct State {
 }
 
 impl State {
-    fn capture(&mut self, account: String, chat: String) -> Target {
+    fn target(&mut self, account: String, chat: String) -> Target {
         self.next += 1;
-        let target = Target {
+        Target {
             account,
             chat,
             epoch: self.epoch,
             order: self.next,
-        };
+        }
+    }
+
+    fn capture(&mut self, account: String, chat: String) -> Target {
+        let target = self.target(account, chat);
         self.reading.insert(target.order, target.clone());
         target
     }
@@ -101,6 +105,27 @@ pub(super) fn capture(state: &AppState) -> Option<Target> {
     };
     refresh(state);
     Some(target)
+}
+
+pub(super) fn target(state: &AppState) -> Option<Target> {
+    if !*state.session_ready.borrow() {
+        return None;
+    }
+    let (account, chat) = current(state)?;
+    Some(state.attachments.borrow_mut().target(account, chat))
+}
+
+pub(super) fn selected(state: &AppState, target: &Target, path: PathBuf, temporary: bool) {
+    if state.config.borrow().queue_selected_attachments {
+        enqueue(state, target, path, temporary);
+    } else {
+        if valid(state, target) {
+            send_media_to(state, &target.chat, path.clone());
+        }
+        if temporary {
+            let _ = std::fs::remove_file(path);
+        }
+    }
 }
 
 pub(super) fn finish_paste(state: &AppState, target: &Target) {

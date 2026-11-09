@@ -64,7 +64,7 @@
   "font_family_set": "ตั้งฟอนต์เป็น {name}",
   "font_family_default": "ใช้ฟอนต์ระบบเริ่มต้น",
   "features_chat": "แชท",
-  "features_chat_desc": "เครื่องหมายอ่านแล้ว ทำเครื่องหมายว่าอ่านแล้ว และการแจ้งเตือน",
+  "features_chat_desc": "การส่ง ตัวอย่าง การแจ้งเตือน และสถานะอ่าน",
   "notifications": "การแจ้งเตือนบนเดสก์ท็อป",
   "notifications_subtitle": "แจ้งเตือนเมื่อมีข้อความนอกแชทที่โฟกัสอยู่",
   "read_receipts_pause": "หยุดส่งสถานะอ่าน",
@@ -475,5 +475,17 @@
   "send_key_enter": "Enter เพื่อส่ง (Shift+Enter เพื่อขึ้นบรรทัดใหม่)",
   "composer_shortcuts_enter": "Enter เพื่อส่ง, Shift+Enter เพื่อขึ้นบรรทัดใหม่",
   "attachment_send_hint_enter": "คลิกส่งหรือกด Enter เพื่อส่ง",
-  "send_key_save_failed": "บันทึกการตั้งค่าปุ่มส่งไม่ได้: {error}"
+  "send_key_save_failed": "บันทึกการตั้งค่าปุ่มส่งไม่ได้: {error}",
+  "queue_selected_attachments": "ตรวจสอบไฟล์แนบก่อนส่ง",
+  "queue_selected_attachments_subtitle": "นำไฟล์ที่เลือกหรือลากมาวางเข้าคิวก่อนส่ง รูปและไฟล์ที่วางจากคลิปบอร์ดจะเข้าคิวเสมอ",
+  "notification_preview": "แสดงข้อความและภาพในการแจ้งเตือน",
+  "notification_preview_subtitle": "แสดงเนื้อหาข้อความ รูป และสติกเกอร์ เมื่อปิดยังแสดงชื่อผู้ส่งและแชท",
+  "notification_hidden_body": "คุณมีข้อความใหม่",
+  "sticker_preview_size": "ตัวอย่างสติกเกอร์เมื่อชี้เมาส์",
+  "sticker_preview_size_subtitle": "ขนาดภาพตัวอย่างเมื่อชี้เมาส์บนสติกเกอร์",
+  "sticker_preview_off": "ซ่อน",
+  "sticker_preview_small": "เล็ก",
+  "sticker_preview_normal": "ปกติ",
+  "sticker_preview_large": "ใหญ่",
+  "chat_preferences_save_failed": "บันทึกการตั้งค่าไม่ได้: {error}"
 }

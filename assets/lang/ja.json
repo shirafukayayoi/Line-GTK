@@ -64,7 +64,7 @@
   "font_family_set": "フォントを{name}に変更しました",
   "font_family_default": "システムの標準フォントを使用しています",
   "features_chat": "トーク",
-  "features_chat_desc": "既読通知とメッセージの通知",
+  "features_chat_desc": "送信・プレビュー・通知・既読の動作",
   "notifications": "デスクトップ通知",
   "notifications_subtitle": "開いているトーク以外にメッセージが届いたら通知する",
   "read_receipts_pause": "既読をつけない",
@@ -603,5 +603,17 @@
   "send_key_enter": "Enterで送信（Shift＋Enterで改行）",
   "composer_shortcuts_enter": "Enterで送信、Shift＋Enterで改行",
   "attachment_send_hint_enter": "「送信」またはEnterで送信します",
-  "send_key_save_failed": "送信キーの設定を保存できませんでした: {error}"
+  "send_key_save_failed": "送信キーの設定を保存できませんでした: {error}",
+  "queue_selected_attachments": "添付を送信前に確認",
+  "queue_selected_attachments_subtitle": "ファイル選択・ドロップした添付を送信待ちに入れます。貼り付けた画像・ファイルは常に送信待ちになります",
+  "notification_preview": "通知の本文・画像を表示",
+  "notification_preview_subtitle": "通知にメッセージ本文と写真・スタンプの内容を含めます。オフでも送信者とトーク名は表示します",
+  "notification_hidden_body": "新しいメッセージがあります",
+  "sticker_preview_size": "スタンプのホバープレビュー",
+  "sticker_preview_size_subtitle": "スタンプにカーソルを合わせたときの拡大表示",
+  "sticker_preview_off": "非表示",
+  "sticker_preview_small": "小",
+  "sticker_preview_normal": "標準",
+  "sticker_preview_large": "大",
+  "chat_preferences_save_failed": "設定を保存できませんでした: {error}"
 }
